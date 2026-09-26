@@ -1,0 +1,49 @@
+:host {
+  all: initial;
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483000;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+.launcher {
+  display: block;
+  margin-left: auto;
+  border: 0;
+  border-radius: 28px;
+  padding: 16px 23px;
+  background: #3657db;
+  color: white;
+  font:
+    600 15px "Segoe UI",
+    Arial,
+    sans-serif;
+  cursor: pointer;
+  box-shadow: 0 5px 24px #17263730;
+}
+.launcher:focus-visible {
+  outline: 3px solid #00b9ed;
+  outline-offset: 4px;
+}
+iframe {
+  display: block;
+  width: min(410px, calc(100vw - 32px));
+  height: min(680px, calc(100dvh - 110px));
+  margin-bottom: 14px;
+  border: 1px solid #dce5f0;
+  border-radius: 22px;
+  background: white;
+  box-shadow: 0 12px 60px #17263735;
+}
+iframe[hidden] {
+  display: none;
+}
+@media (max-width: 480px) {
+  :host {
+    right: 16px;
+    bottom: 16px;
+  }
+}

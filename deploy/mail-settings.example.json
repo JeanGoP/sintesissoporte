@@ -1,0 +1,14 @@
+{
+  "ConnectionStrings": { "Tickets": "" },
+  "Mail": {
+    "Mode": "Disabled",
+    "PublicBaseUrl": "https://REEMPLAZAR-CON-EL-DOMINIO-DE-SIDECIL",
+    "FromName": "Sidecil · Atención al cliente",
+    "FromAddress": "",
+    "AccountKey": "sidecil-support",
+    "SmtpHost": "", "SmtpPort": 587, "SmtpUser": "", "SmtpPassword": "",
+    "ImapHost": "", "ImapPort": 993, "ImapUser": "", "ImapPassword": "",
+    "ImapFolder": "INBOX",
+    "TrustedAuthenticationService": ""
+  }
+}

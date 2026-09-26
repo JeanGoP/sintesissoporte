@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sidecil.Tickets.Api/Sidecil.Tickets.Api.csproj" />
+    <Project Path="src/Sidecil.Tickets.Application/Sidecil.Tickets.Application.csproj" />
+    <Project Path="src/Sidecil.Tickets.Domain/Sidecil.Tickets.Domain.csproj" />
+    <Project Path="src/Sidecil.Tickets.Infrastructure/Sidecil.Tickets.Infrastructure.csproj" />
+    <Project Path="src/Sidecil.Tickets.Worker/Sidecil.Tickets.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sidecil.Tickets.Domain.Tests/Sidecil.Tickets.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

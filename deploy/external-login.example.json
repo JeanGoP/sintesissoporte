@@ -1,0 +1,6 @@
+{
+  "ExternalLogin": {
+    "Microsoft": { "ClientId": "", "ClientSecret": "" },
+    "Google": { "ClientId": "", "ClientSecret": "" }
+  }
+}
