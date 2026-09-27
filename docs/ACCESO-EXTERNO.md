@@ -9,7 +9,7 @@ Los clientes nuevos pueden pulsar **Continuar con Google** o **Continuar con Mic
 Para cuentas existentes, agentes y administradores:
 
 1. El usuario conserva la cuenta, organización y rol asignados por el administrador.
-2. El usuario ingresa con su correo y contraseña y abre **Mi cuenta**.
+2. Los usuarios creados por un administrador reciben una invitación por correo para definir su contraseña (ver [Invitaciones](INVITACIONES.md)). Después ingresan con su correo y contraseña y abren **Mi cuenta**.
 3. En **Acceso con Microsoft y Google**, confirma su contraseña actual y pulsa **Vincular** junto al proveedor.
 4. Completa el acceso en Microsoft o Google. Regresa al portal con la cuenta vinculada.
 5. Desde entonces puede ingresar con **Continuar con Microsoft** o **Continuar con Google** en la pantalla principal.

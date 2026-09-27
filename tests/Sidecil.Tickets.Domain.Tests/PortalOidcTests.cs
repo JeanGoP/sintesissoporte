@@ -21,7 +21,7 @@ using Xunit;
 
 namespace Sidecil.Tickets.Domain.Tests;
 
-public sealed class PortalOidcTests
+public sealed partial class PortalOidcTests
 {
     private const string Password = "Test-only!Password987";
     private static async Task Csrf(HttpClient client) {
@@ -224,6 +224,8 @@ public sealed class PortalOidcFactory : WebApplicationFactory<Program>
         if (disposing) {
             using var scope = Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
+            var emails = db.Users.Where(x => CreatedUsers.Contains(x.Id)).Select(x => x.Email).ToList();
+            db.OutboundEmails.Where(x => emails.Contains(x.Recipient)).ExecuteDelete();
             db.Users.Where(x => CreatedUsers.Contains(x.Id) || (Backchannel.Email != null && x.Email == Backchannel.Email)).ExecuteDelete();
         }
         base.Dispose(disposing);

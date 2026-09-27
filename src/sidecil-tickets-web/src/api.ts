@@ -64,7 +64,13 @@ export type Directory = {
   organizations: { id: string; name: string }[] | null;
   teams: { id: string; name: string }[] | null;
   users:
-    | { id: string; displayName: string; email: string; role: string }[]
+    | {
+        id: string;
+        displayName: string;
+        email: string;
+        role: string;
+        invitationPending?: boolean;
+      }[]
     | null;
 };
 export const statuses: Record<Status, string> = {

@@ -1,3 +1,4 @@
+import { ActivateAccount } from "./activate-account";
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -205,7 +206,8 @@ function Login({ onSuccess }: { onSuccess: () => Promise<void> }) {
           <span>
             Acceso para empleados y clientes de Sidecil.
             <br />
-            Si eres cliente, puedes crear tu cuenta al continuar con Google o Microsoft.
+            Si eres cliente, puedes crear tu cuenta al continuar con Google o
+            Microsoft.
           </span>
         </div>
       </section>
@@ -393,6 +395,7 @@ createRoot(document.getElementById("root")!).render(
           <Routes>
             <Route path="/chat-widget" element={<ChatWidget />} />
             <Route path="/solicitar" element={<GuestPage />} />
+            <Route path="/activar-cuenta" element={<ActivateAccount />} />
             <Route
               path="/confirmar-solicitud"
               element={<GuestPage confirm />}

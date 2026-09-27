@@ -16,7 +16,6 @@ public record ChangePasswordRequest([property: Required] string CurrentPassword,
 public record CreateUserRequest(
     [property: Required, StringLength(120)] string DisplayName,
     [property: Required, EmailAddress, StringLength(200)] string Email,
-    [property: Required, MinLength(12)] string Password,
     Guid OrganizationId,
     Guid? TeamId,
     [property: Required] string Role);

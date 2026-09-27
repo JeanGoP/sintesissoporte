@@ -53,6 +53,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddScoped<TicketService>();
+builder.Services.AddScoped<UserInvitations>();
+builder.Services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromHours(24));
 builder.Services.Configure<MailOptions>(builder.Configuration.GetSection("Mail"));
 builder.Services.AddScoped<EmailComposer>();
 var mailConfiguration = builder.Configuration.GetSection("Mail").Get<MailOptions>() ?? new();
@@ -160,6 +162,8 @@ api.MapPut("/tickets/{id:guid}/assignment", (Guid id, AssignmentRequest r, HttpC
 api.MapGet("/directory", (HttpContext c, TicketService s) => s.DirectoryAsync(c));
 api.MapPost("/admin/users", (CreateUserRequest r, HttpContext c, TicketService s) => s.CreateUserAsync(c, r));
 api.MapPost("/admin/organizations", (CreateOrganizationRequest r, HttpContext c, TicketService s) => s.CreateOrganizationAsync(c, r));
+api.MapPost("/admin/users/{id}/invitation", (string id, HttpContext c, UserInvitations invitations) => invitations.ResendAsync(id, c)).RequireRateLimiting("login");
+app.MapPost("/api/v1/auth/invitation", (AcceptInvitationRequest r, UserInvitations invitations) => invitations.AcceptAsync(r)).AddEndpointFilter<ValidationFilter>().RequireRateLimiting("login");
 PortalIdentity.Map(app);
 ChatEndpoints.Map(app);
 api.MapGet("/tickets/{id:guid}/attachments/{fileId:guid}", (Guid id, Guid fileId, HttpContext c, TicketService s) => s.AttachmentAsync(c, id, fileId));

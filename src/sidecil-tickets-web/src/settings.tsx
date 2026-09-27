@@ -23,7 +23,7 @@ export function AdminPage() {
     [orgOpen, setOrgOpen] = useState(false),
     [name, setName] = useState(""),
     [email, setEmail] = useState(""),
-    [password, setPassword] = useState(""),
+    [notice, setNotice] = useState(""),
     [role, setRole] = useState("Requester"),
     [org, setOrg] = useState(""),
     [team, setTeam] = useState(""),
@@ -40,7 +40,6 @@ export function AdminPage() {
         body: JSON.stringify({
           displayName: name,
           email,
-          password,
           role,
           organizationId: org,
           teamId: team || null,
@@ -49,7 +48,9 @@ export function AdminPage() {
       setOpen(false);
       setName("");
       setEmail("");
-      setPassword("");
+      setNotice(
+        "Usuario creado. Su invitación quedó en cola para enviarse por correo.",
+      );
       await directory.refetch();
     } catch (e) {
       setError(e);
@@ -88,6 +89,8 @@ export function AdminPage() {
         </div>
       </div>
       <ErrorBox error={directory.error} />
+      <ErrorBox error={!open && !orgOpen ? error : undefined} />
+      {notice && <Alert severity="success">{notice}</Alert>}
       <section className="inbox-panel">
         <div className="panel-title">
           <h2>
@@ -102,6 +105,7 @@ export function AdminPage() {
                 <th>Persona</th>
                 <th>Correo electrónico</th>
                 <th>Rol</th>
+                <th>Invitación</th>
               </tr>
             </thead>
             <tbody>
@@ -122,6 +126,34 @@ export function AdminPage() {
                           ? "Agente"
                           : "Solicitante"}
                     </span>
+                  </td>
+                  <td>
+                    {u.invitationPending ? (
+                      <Button
+                        disabled={busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          setError(undefined);
+                          setNotice("");
+                          try {
+                            await api(`/admin/users/${u.id}/invitation`, {
+                              method: "POST",
+                            });
+                            setNotice(
+                              "Nueva invitación en cola. El enlace anterior dejó de ser válido.",
+                            );
+                          } catch (e) {
+                            setError(e);
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        Reenviar invitación
+                      </Button>
+                    ) : (
+                      "Activada"
+                    )}
                   </td>
                 </tr>
               ))}
@@ -153,15 +185,10 @@ export function AdminPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <TextField
-                label="Contraseña inicial"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                helperText="Mínimo 12 caracteres, mayúsculas, minúsculas, números y símbolos."
-                inputProps={{ minLength: 12 }}
-              />
+              <Alert severity="info">
+                Recibirá un enlace por correo para crear su contraseña. Válido
+                durante 24 horas.
+              </Alert>
               <TextField
                 select
                 label="Organización"

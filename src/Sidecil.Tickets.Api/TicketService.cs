@@ -7,7 +7,7 @@ using Sidecil.Tickets.Infrastructure.Mail;
 
 namespace Sidecil.Tickets.Api;
 
-public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUser> users, EmailComposer mail)
+public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUser> users, EmailComposer mail, UserInvitations invitations)
 {
     private async Task<ApplicationUser> Actor(HttpContext c) => (await users.GetUserAsync(c.User))!;
     private IQueryable<Ticket> Visible(ApplicationUser u) => u.Role switch {
@@ -205,7 +205,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
                 .Select(u => new { u.Id, u.DisplayName, u.TeamId }).ToListAsync() : null,
             organizations = actor.Role == "Admin" ? await db.Organizations.OrderBy(o => o.Name).ToListAsync() : null,
             teams = actor.Role == "Admin" ? await db.Teams.OrderBy(t => t.Name).ToListAsync() : null,
-            users = actor.Role == "Admin" ? await db.Users.OrderBy(u => u.DisplayName).Select(u => new { u.Id, u.DisplayName, u.Email, u.Role, u.OrganizationId, u.TeamId }).ToListAsync() : null
+            users = actor.Role == "Admin" ? await db.Users.OrderBy(u => u.DisplayName).Select(u => new { u.Id, u.DisplayName, u.Email, u.Role, u.OrganizationId, u.TeamId, invitationPending = u.PasswordHash == null && !db.UserLogins.Any(l => l.UserId == u.Id) }).ToListAsync() : null
         });
     }
 
@@ -215,13 +215,17 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         if (request.Role is not ("Requester" or "Agent" or "Admin")) return Bad("Rol inválido.");
         if (!await db.Organizations.AnyAsync(o => o.Id == request.OrganizationId)) return Bad("Organización inválida.");
         if (request.Role == "Agent" && (request.TeamId is null || !await db.Teams.AnyAsync(t => t.Id == request.TeamId))) return Bad("Selecciona un equipo válido.");
+        if (!invitations.Enabled) return Bad("Configura el correo antes de invitar usuarios.");
+        await using var tx = await db.Database.BeginTransactionAsync();
         var user = new ApplicationUser {
             UserName = request.Email.Trim(), Email = request.Email.Trim(), DisplayName = request.DisplayName.Trim(),
             Role = request.Role, OrganizationId = request.OrganizationId, TeamId = request.Role == "Agent" ? request.TeamId : null
         };
-        var result = await users.CreateAsync(user, request.Password);
-        return result.Succeeded ? Results.Created("/api/v1/directory", new { user.Id }) :
-            Bad("No se pudo crear el usuario. Verifica que el correo sea único y la contraseña contenga 12 caracteres, mayúsculas, minúsculas, números y símbolos.");
+        var result = await users.CreateAsync(user);
+        if (!result.Succeeded) return Bad("No se pudo crear el usuario. Verifica que el correo sea válido y no esté registrado.");
+        await invitations.QueueAsync(user);
+        await tx.CommitAsync();
+        return Results.Created("/api/v1/directory", new { user.Id, invitationQueued = true });
     }
 
     public async Task<IResult> CreateOrganizationAsync(HttpContext c, CreateOrganizationRequest request)
