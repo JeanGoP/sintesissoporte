@@ -1,5 +1,5 @@
 import { backendUrl } from "./backend";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, TextField } from "@mui/material";
 import { api, refreshCsrf } from "./api";
@@ -7,7 +7,13 @@ import { ErrorBox } from "./shared";
 type Provider = { name: string; enabled: boolean };
 function MicrosoftLogo() {
   return (
-    <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true" focusable="false">
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 21 21"
+      aria-hidden="true"
+      focusable="false"
+    >
       <path fill="#f25022" d="M0 0h10v10H0z" />
       <path fill="#7fba00" d="M11 0h10v10H11z" />
       <path fill="#00a4ef" d="M0 11h10v10H0z" />
@@ -22,6 +28,14 @@ export function ExternalLoginButtons() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
+  useEffect(() => {
+    // El historial puede restaurar la página con el bloqueo previo al acceso externo.
+    const restore = (event: PageTransitionEvent) => {
+      if (event.persisted) setBusy(false);
+    };
+    window.addEventListener("pageshow", restore);
+    return () => window.removeEventListener("pageshow", restore);
+  }, []);
   const result = new URLSearchParams(location.search).get("external");
   return (
     <div className="external-login">
@@ -42,7 +56,9 @@ export function ExternalLoginButtons() {
         {(providers.data || []).map((provider) => (
           <Button
             key={provider.name}
-            startIcon={provider.name === "Microsoft" ? <MicrosoftLogo /> : undefined}
+            startIcon={
+              provider.name === "Microsoft" ? <MicrosoftLogo /> : undefined
+            }
             variant="outlined"
             fullWidth
             disabled={busy || !provider.enabled}
