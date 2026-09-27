@@ -48,6 +48,10 @@ export function DetailPage({ user }: { user: User }) {
   const detail = useQuery({
     queryKey: ["ticket", id],
     queryFn: () => api<TicketDetail>("/tickets/" + id, { cache: "no-store" }),
+    refetchInterval: busy ? false : 5000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: !busy,
+    refetchOnReconnect: !busy,
   });
   const directory = useQuery({
     queryKey: ["directory"],
@@ -109,7 +113,11 @@ export function DetailPage({ user }: { user: User }) {
           className="text-button"
           disabled={busy}
           onClick={async () => {
-            await detail.refetch();
+            const refreshed = await detail.refetch();
+            if (refreshed.error) {
+              setError(refreshed.error);
+              return;
+            }
             setError(undefined);
             setNotice("Ticket actualizado. Tu borrador se conservó.");
           }}
@@ -129,7 +137,7 @@ export function DetailPage({ user }: { user: User }) {
           <span>Creado el {date(t.createdAt)}</span>
         </div>
       </div>
-      <ErrorBox error={error} />
+      <ErrorBox error={error || detail.error} />
       <div className="detail-grid">
         <section className="conversation">
           <div className="section-heading">
@@ -389,7 +397,7 @@ export function DetailPage({ user }: { user: User }) {
             onChange={(e) => setReason(e.target.value)}
             inputProps={{ maxLength: 2000 }}
           />
-          <ErrorBox error={error} />
+          <ErrorBox error={error || detail.error} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setNext("")} disabled={busy}>

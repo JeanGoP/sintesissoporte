@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 test.use({ baseURL: "http://127.0.0.1:5187" });
-for (const header of ['W/"version-1"', ""]) {
-  test(`Respuesta con ETag ${header ? "modificado" : "ausente"} y conflicto real`, async ({
+for (const header of ['W/"version-1"', "", "automatico"]) {
+  test(`Respuesta con ETag ${header || "ausente"} y actualizacion`, async ({
     page,
   }) => {
     let version = '"version-1"';
@@ -61,7 +61,20 @@ for (const header of ['W/"version-1"', ""]) {
             dueAt: "2026-09-28T10:00:00Z",
             requester: { displayName: "Cliente", email: "client@example.test" },
             organization: "Pruebas",
-            messages: [],
+            messages:
+              version === '"version-2"'
+                ? [
+                    {
+                      id: 1,
+                      body: "Nueva respuesta por correo",
+                      author: "Cliente",
+                      createdAt: "2026-09-27T10:01:00Z",
+                      visibility: "Public",
+                      source: "Email",
+                      own: false,
+                    },
+                  ]
+                : [],
             attachments: [],
             events: [],
             nextStatuses: [],
@@ -75,6 +88,17 @@ for (const header of ['W/"version-1"', ""]) {
     await draft.fill("Respuesta conservada");
     // Un correo entrante cambia SQL despues de abrir la pantalla.
     version = '"version-2"';
+    if (header === "automatico") {
+      await expect(
+        page.getByText("Nueva respuesta por correo", { exact: true }),
+      ).toBeVisible({ timeout: 12000 });
+      await expect(draft).toHaveValue("Respuesta conservada");
+      expect(writes).toEqual([]);
+      await page.getByRole("button", { name: "Enviar respuesta" }).click();
+      await expect(draft).toHaveValue("");
+      expect(writes).toEqual(['"version-2"']);
+      return;
+    }
     await page.getByRole("button", { name: "Enviar respuesta" }).click();
     await expect(
       page.getByText("El ticket cambió.", { exact: false }),

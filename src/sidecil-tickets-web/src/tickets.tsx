@@ -51,8 +51,12 @@ type TicketList = {
 function useTickets(search = "") {
   return useQuery({
     queryKey: ["tickets", search],
-    queryFn: async () => (await api<TicketList>("/tickets" + search)).data,
-    refetchInterval: 30000,
+    queryFn: async () =>
+      (await api<TicketList>("/tickets" + search, { cache: "no-store" })).data,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 function Stats({ summary }: { summary: Summary }) {
