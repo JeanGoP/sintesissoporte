@@ -56,7 +56,7 @@ Configurar en el dominio SPF, DKIM y DMARC según el proveedor. La validación d
 
 El Worker no cambia flags, no borra mensajes ni mueve correos en el buzón IMAP: lo abre en modo lectura. Usa UID y UIDVALIDITY persistentes, por lo que un mensaje marcado como leído por una persona también puede procesarse. La primera ejecución recorre el contenido de la carpeta desde el principio, en lotes de hasta 50; utilizar un buzón/carpeta dedicado. Cambiar AccountKey puede provocar una nueva importación y requiere un procedimiento operativo.
 
-Generar los paquetes con scripts/Publish-IIS.ps1. Publicar artifacts/iis en IIS y artifacts/worker en un directorio aparte para el servicio de Windows. Aplicar artifacts/sql/schema.sql con identidad de despliegue. Instalar el Worker como servicio con su ejecutable y --contentRoot apuntando a su directorio absoluto, una cuenta con acceso a SQL y recuperación tras fallo. No ejecutarlo dentro de IIS. El servicio no ejecuta migraciones al iniciar.
+La entrega actual publish contiene solo el backend. El servicio de correo sigue en el código fuente, pero no se publica en esta carpeta; su instalación se preparará por separado cuando se active el buzón. No ejecutarlo dentro de IIS. El servicio no ejecuta migraciones al iniciar.
 
 ## Correlación y revisión
 

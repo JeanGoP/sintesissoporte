@@ -14,7 +14,7 @@ Usar subdominios del MISMO dominio registrable y HTTPS en ambos. Las cookies sig
 
 ## 1. Configurar el servidor IIS
 
-Generar una nueva entrega con scripts/Publish-Server.ps1 y seguir INSTALAR-SERVIDOR.md para Hosting Bundle .NET 10, SQL, claves persistentes, bootstrap y Worker. Configurar en la API:
+Publicar con scripts/Publish-Backend.ps1 y copiar el contenido de publish a la aplicación IIS /soporte. El servidor necesita Hosting Bundle .NET 10 y conexión a SQL Server. Configurar en la API:
 
 ```text
 ASPNETCORE_ENVIRONMENT=Production

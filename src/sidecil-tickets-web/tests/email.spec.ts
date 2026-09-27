@@ -17,7 +17,7 @@ async function worker() {
     path.join(root, ".tools/dotnet/dotnet.exe"),
     ["Sidecil.Tickets.Worker.dll", "--once"],
     {
-      cwd: path.join(root, "artifacts/worker"),
+      cwd: path.join(root, ".local/runtime/mail"),
       env: {
         ...process.env,
         DOTNET_ENVIRONMENT: "Development",

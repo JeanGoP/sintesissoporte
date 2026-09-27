@@ -28,3 +28,6 @@ test-results/
 *.bak
 .vs/
 **/appsettings.Production.json
+
+# Publicación local del backend
+publish/

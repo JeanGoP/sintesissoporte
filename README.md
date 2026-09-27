@@ -54,9 +54,9 @@ Las pruebas de navegador crean tickets de prueba en la base configurada. Ejecuta
 
 Las pruebas cubren reglas de acceso y estados, API real sobre SQL Server, CSRF, notas internas, persistencia, conflictos de edición y flujos de escritorio/móvil. Consultar docs/VALIDACION.md para la primera entrega y docs/VALIDACION-CORREO.md para la actualización de correo.
 
-## Compilar para IIS
+## Publicar el backend
 
-Ejecutar ./scripts/Publish-IIS.ps1. El paquete se genera en artifacts/iis y el SQL idempotente en artifacts/sql. El script construye y prueba, pero no modifica sitios IIS ni servidores externos. Instrucciones operativas en deploy/iis/README.md.
+Ejecutar `./scripts/Publish-Backend.ps1`. La publicación queda directamente en la carpeta `publish` de la raíz. Esa es la única carpeta que se copia al servidor para la aplicación `/soporte`. La configuración privada se completa en `publish/appsettings.Production.json`; no se sube a GitHub.
 
 ## Límites de esta entrega y siguiente trabajo
 
@@ -82,11 +82,6 @@ El panel `/admin/chat` permite registrar integraciones y obtener el widget para 
 ## Acceso al portal con Microsoft y Google
 
 Los botones de acceso externo están en el inicio de sesión principal. Cada usuario vincula su cuenta desde **Mi cuenta**, conservando sus permisos. Para activarlos consulta [la configuración del acceso externo](docs/ACCESO-EXTERNO.md). Las pruebas OIDC usan SQL Server de desarrollo; para pruebas sin base de datos agrega `--filter FullyQualifiedName!~PortalOidcTests`.
-
-## Entrega para subir al servidor
-
-Ejecutar `./scripts/Publish-Server.ps1` para generar una carpeta nueva y ZIP en `artifacts/servidor/`, con IIS, Worker, SQL, plantillas sin secretos y guía de instalación. Consultar [instalación del servidor](docs/INSTALAR-SERVIDOR.md). Para la alternativa con contenedores, ver [preparación de Coolify](docs/COOLIFY.md); el frontend dispone de Dockerfile independiente y la validación en el servidor Coolify sigue pendiente.
-
 
 ## Frontend en Coolify y API en IIS
 

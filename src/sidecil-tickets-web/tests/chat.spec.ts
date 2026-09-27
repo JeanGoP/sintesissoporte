@@ -31,7 +31,7 @@ async function dispatch() {
     path.join(root, ".tools/dotnet/dotnet.exe"),
     ["Sidecil.Tickets.Worker.dll", "--once"],
     {
-      cwd: path.join(root, "artifacts/worker"),
+      cwd: path.join(root, ".local/runtime/mail"),
       timeout: 40000,
       env: {
         ...process.env,

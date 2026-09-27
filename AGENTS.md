@@ -16,3 +16,9 @@
 - SQL Server y Worker permanecen en el servidor/red de Sidecil.
 - Mantener soporte de PathBase /soporte en API, OAuth, recursos y widget; frontend usa VITE_API_URL y API usa Frontend__PublicBaseUrl.
 - El widget embebido conserva recursos en IIS para la política de enmarcado por integración. No borrar wwwroot del paquete IIS.
+
+## Entrega simplificada solicitada
+
+- Publicar solamente el backend directamente en la carpeta publish de la raíz usando scripts/Publish-Backend.ps1.
+- No generar ZIP, paquetes fechados ni carpetas de entrega iis, sql o worker. Conservar el código fuente de esas funciones.
+- Los archivos necesarios para la demostración local se guardan en .local/runtime, fuera de la entrega.
