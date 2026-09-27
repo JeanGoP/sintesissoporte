@@ -76,6 +76,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         var ticket = await Visible(actor).AsNoTracking().FirstOrDefaultAsync(t => t.PublicId == id);
         if (ticket is null) return Results.NotFound();
         c.Response.Headers.ETag = Etag(ticket);
+        c.Response.Headers.CacheControl = "private, no-store";
         var staff = Staff(actor);
         var messages = await db.Messages.Where(m => m.TicketId == ticket.Id && (staff || m.Visibility == MessageVisibility.Public))
             .OrderBy(m => m.CreatedAt).ThenBy(m => m.Id).Select(m => new { m.Id, m.Body, m.Visibility, m.CreatedAt, m.Source,
@@ -88,7 +89,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
             ?? new { DisplayName = ticket.GuestName!, Email = ticket.GuestEmail };
         var organization = await db.Organizations.Where(o => o.Id == ticket.OrganizationId).Select(o => o.Name).FirstAsync();
         return Results.Ok(new {
-            id = ticket.PublicId, number = Number(ticket.Id), ticket.Subject, ticket.Category, ticket.Status, ticket.Priority,
+            version = Etag(ticket), id = ticket.PublicId, number = Number(ticket.Id), ticket.Subject, ticket.Category, ticket.Status, ticket.Priority,
             ticket.CreatedAt, ticket.UpdatedAt, ticket.DueAt, ticket.HasCustomerReply, ticket.ResolvedAt, ticket.AssigneeId, requester, organization,
             attachments = await (from file in db.ChatAttachments
                 join chat in db.ChatConversations on file.ConversationId equals chat.Id

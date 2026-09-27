@@ -33,6 +33,7 @@ export type Ticket = {
   hasCustomerReply: boolean;
 };
 export type TicketDetail = Omit<Ticket, "requester"> & {
+  version?: string;
   requester: { displayName: string; email: string };
   attachments: { id: string; fileName: string; length: number }[];
   assigneeId: string | null;

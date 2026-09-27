@@ -47,7 +47,7 @@ export function DetailPage({ user }: { user: User }) {
     [notice, setNotice] = useState("");
   const detail = useQuery({
     queryKey: ["ticket", id],
-    queryFn: () => api<TicketDetail>("/tickets/" + id),
+    queryFn: () => api<TicketDetail>("/tickets/" + id, { cache: "no-store" }),
   });
   const directory = useQuery({
     queryKey: ["directory"],
@@ -62,9 +62,14 @@ export function DetailPage({ user }: { user: User }) {
     setBusy(true);
     setError(undefined);
     try {
+      const version = detail.data?.data.version || detail.data?.etag;
+      if (!version)
+        throw new Error(
+          "No se pudo obtener la versión del ticket. Pulsa Actualizar antes de guardar.",
+        );
       await api("/tickets/" + id + path, {
         method,
-        headers: { "If-Match": detail.data?.etag || "" },
+        headers: { "If-Match": version },
         body: JSON.stringify(body),
       });
       await detail.refetch();
