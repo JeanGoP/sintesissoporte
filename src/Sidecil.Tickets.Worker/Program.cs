@@ -6,6 +6,10 @@ using Sidecil.Tickets.Infrastructure.Mail;
 var builder = Host.CreateApplicationBuilder(args);
 // Configuracion privada del servicio; IIS no carga este archivo.
 builder.Configuration.AddJsonFile("mailsettings.Production.json", optional: true, reloadOnChange: false).AddEnvironmentVariables();
+if (args.Contains("--check-imap")) {
+    Environment.ExitCode = await MailConnectionCheck.CheckImapAsync(builder.Configuration.GetSection("Mail").Get<MailOptions>() ?? new());
+    return;
+}
 builder.Services.AddWindowsService(options => options.ServiceName = "Sidecil Tickets Mail");
 var connection = builder.Configuration.GetConnectionString("Tickets") ?? throw new InvalidOperationException("Configura ConnectionStrings__Tickets.");
 builder.Services.AddDbContext<TicketsDbContext>(o => o.UseSqlServer(connection));

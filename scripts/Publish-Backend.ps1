@@ -20,6 +20,7 @@ try {
     # Servicio autorizado en la misma entrega; no reemplaza appsettings de IIS.
     & $sdk publish src/Sidecil.Tickets.Worker -c Release --no-self-contained -p:MailBundle=true -p:DebugType=None -p:DebugSymbols=false -o publish
     if ($LASTEXITCODE -ne 0) { throw 'Fallo la publicacion del servicio de correo.' }
+    Copy-Item scripts/Probar-Gmail.ps1 (Join-Path $root 'publish/Probar-Gmail.ps1')
     Copy-Item scripts/Configurar-Correo.ps1 (Join-Path $root 'publish/Configurar-Correo.ps1')
     & $sdk publish src/Sidecil.Tickets.Api -c Release --no-self-contained -p:DebugType=None -p:DebugSymbols=false -o publish
     if ($LASTEXITCODE -ne 0) { throw 'Falló la publicación del backend.' }
