@@ -1,3 +1,4 @@
+import { backendUrl } from "./backend";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -137,7 +138,9 @@ export function DetailPage({ user }: { user: User }) {
               {t.attachments.map((file) => (
                 <a
                   key={file.id}
-                  href={"/api/v1/tickets/" + t.id + "/attachments/" + file.id}
+                  href={backendUrl(
+                    "/api/v1/tickets/" + t.id + "/attachments/" + file.id,
+                  )}
                   download
                 >
                   {file.fileName} · {(file.length / 1024).toFixed(1)} KB

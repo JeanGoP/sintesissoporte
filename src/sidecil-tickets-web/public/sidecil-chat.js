@@ -13,7 +13,7 @@
   const root = host.attachShadow({ mode: "open" });
   const css = document.createElement("link");
   css.rel = "stylesheet";
-  css.href = new URL("/sidecil-chat.css", source).href;
+  css.href = new URL("sidecil-chat.css", source).href;
   const frame = document.createElement("iframe");
   frame.title = "Chat de soporte de Sidecil";
   frame.id = "sidecil-chat-panel";
@@ -29,7 +29,7 @@
   let loaded = false;
   function toggle(open) {
     if (open && !loaded) {
-      const url = new URL("/chat-widget", source);
+      const url = new URL("chat-widget", source);
       url.searchParams.set("site", script.dataset.site);
       frame.src = url.href;
       loaded = true;

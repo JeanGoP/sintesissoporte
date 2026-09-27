@@ -1,0 +1,13 @@
+**
+!src/
+!src/sidecil-tickets-web/
+!src/sidecil-tickets-web/**
+!deploy/
+!deploy/coolify/
+!deploy/coolify/**
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+**/.env*
+**/*.tsbuildinfo

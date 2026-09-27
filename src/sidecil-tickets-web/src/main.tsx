@@ -389,7 +389,7 @@ createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
       <QueryClientProvider client={client}>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Routes>
             <Route path="/chat-widget" element={<ChatWidget />} />
             <Route path="/solicitar" element={<GuestPage />} />

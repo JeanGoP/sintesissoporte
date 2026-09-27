@@ -21,7 +21,7 @@ No guardar secretos en el repositorio. Si se utiliza autenticación integrada SQ
 - La API no aplica migraciones durante su arranque normal. Validar /health/live, /health/ready y el login a través de HTTPS.
 - Probar acceso por roles, notas privadas, cambio simultáneo y reciclado del pool en el servidor destino.
 
-La aplicación utiliza una única URL para frontend y API; no necesita CORS abierto, reescritura SPA global de IIS ni un proceso Node. El fallback de rutas de interfaz se resuelve en ASP.NET Core y no intercepta /api.
+La distribución actual utiliza frontend en Coolify y API en IIS. Configurar Frontend__PublicBaseUrl y seguir docs/COOLIFY.md. IIS conserva los recursos del widget con su política de enmarcado; el portal principal se sirve desde Coolify. El modo de origen único sigue disponible si se omite esa configuración.
 
 ## Operación y recuperación
 

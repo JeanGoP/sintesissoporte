@@ -17,7 +17,7 @@ Ya están implementados el formulario público /solicitar, la verificación de c
 - Historial interno de creación, mensajes, asignación y cambios de estado, guardado en la misma transacción que el ticket.
 - Resumen operativo calculado desde los datos autorizados; sin indicadores simulados.
 - Creación administrativa de organizaciones y usuarios; cambio de contraseña.
-- Interfaz responsive, compilada y servida por ASP.NET Core bajo una única URL.
+- Interfaz responsive con publicación independiente en Coolify; API en IIS. Se mantiene el modo local de origen único.
 - Migración inicial de SQL Server y datos de demostración separados de producción.
 
 ## Ejecutar localmente
@@ -85,4 +85,9 @@ Los botones de acceso externo están en el inicio de sesión principal. Cada usu
 
 ## Entrega para subir al servidor
 
-Ejecutar `./scripts/Publish-Server.ps1` para generar una carpeta nueva y ZIP en `artifacts/servidor/`, con IIS, Worker, SQL, plantillas sin secretos y guía de instalación. Consultar [instalación del servidor](docs/INSTALAR-SERVIDOR.md). Para la alternativa con contenedores, ver [preparación de Coolify](docs/COOLIFY.md); la adaptación y validación en Coolify siguen pendientes.
+Ejecutar `./scripts/Publish-Server.ps1` para generar una carpeta nueva y ZIP en `artifacts/servidor/`, con IIS, Worker, SQL, plantillas sin secretos y guía de instalación. Consultar [instalación del servidor](docs/INSTALAR-SERVIDOR.md). Para la alternativa con contenedores, ver [preparación de Coolify](docs/COOLIFY.md); el frontend dispone de Dockerfile independiente y la validación en el servidor Coolify sigue pendiente.
+
+
+## Frontend en Coolify y API en IIS
+
+La distribución elegida usa `VITE_API_URL` en la compilación React y `Frontend__PublicBaseUrl` en IIS. La API permite CORS únicamente para ese origen, conserva CSRF y devuelve allí los accesos externos. Consultar [la guía de despliegue separado](docs/COOLIFY.md). El Dockerfile `deploy/coolify/Dockerfile` contiene únicamente el frontend; SQL Server y el Worker permanecen en tu servidor.

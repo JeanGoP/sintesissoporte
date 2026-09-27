@@ -1,3 +1,4 @@
+import { backendUrl } from "./backend";
 export type User = {
   id: string;
   displayName: string;
@@ -89,7 +90,9 @@ export class ApiError extends Error {
 }
 let csrf = "";
 export async function refreshCsrf() {
-  const response = await fetch("/api/v1/auth/csrf");
+  const response = await fetch(backendUrl("/api/v1/auth/csrf"), {
+    credentials: "include",
+  });
   if (!response.ok) throw new Error("No se pudo conectar con Sidecil.");
   csrf = (await response.json()).token;
 }
@@ -99,8 +102,9 @@ export async function api<T>(
 ): Promise<{ data: T; etag: string }> {
   const method = options.method || "GET";
   if (method !== "GET" && !csrf) await refreshCsrf();
-  const response = await fetch("/api/v1" + path, {
+  const response = await fetch(backendUrl("/api/v1" + path), {
     ...options,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(method !== "GET" ? { "X-CSRF-TOKEN": csrf } : {}),

@@ -1,3 +1,4 @@
+import { backendUrl } from "./backend";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button, TextField, MenuItem } from "@mui/material";
 import {
@@ -104,7 +105,7 @@ export function ChatWidget() {
     options: RequestInit = {},
     active?: Session,
   ): Promise<T> {
-    const response = await fetch("/api/v1/chat" + path, {
+    const response = await fetch(backendUrl("/api/v1/chat" + path), {
       ...options,
       credentials: "omit",
       headers: {

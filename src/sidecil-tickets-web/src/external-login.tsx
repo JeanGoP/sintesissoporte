@@ -1,3 +1,4 @@
+import { backendUrl } from "./backend";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, TextField } from "@mui/material";
@@ -44,7 +45,7 @@ export function ExternalLoginButtons() {
                     { method: "POST", body: "{}" },
                   )
                 ).data;
-                location.assign(result.url);
+                location.assign(backendUrl(result.url));
               } catch (e) {
                 setError(e);
                 setBusy(false);
@@ -95,7 +96,7 @@ export function ExternalConnections() {
         await refreshCsrf();
         await connections.refetch();
         setNotice("Cuenta desvinculada.");
-      } else location.assign(response.data.url);
+      } else location.assign(backendUrl(response.data.url));
     } catch (e) {
       setError(e);
     } finally {

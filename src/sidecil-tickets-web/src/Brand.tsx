@@ -2,7 +2,7 @@ export function Brand() {
   return (
     <div className="brand">
       <img
-        src="/branding/sidecil-logo.png"
+        src={import.meta.env.BASE_URL + "branding/sidecil-logo.png"}
         alt="Sidecil · Cloud technology"
         width="623"
         height="264"

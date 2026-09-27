@@ -1,5 +1,7 @@
 # Instalar Sidecil Tickets en Windows / IIS
 
+Configuración elegida: portal React en Coolify y API/SQL/Worker en tu servidor. Seguir también COOLIFY.md para los dos dominios, CORS, callbacks OAuth y VITE_API_URL. El paquete IIS conserva los recursos del widget embebido; el portal principal se publica por separado.
+
 ## Qué debes subir
 
 Desde la raíz del proyecto, con PowerShell 7, Node >=20.19 y el SDK indicado por global.json:
@@ -28,13 +30,14 @@ El paquete depende de .NET 10 instalado en el servidor. No necesita Node ni el S
 
 ## 2. Configurar la API
 
-Copiar `iis/` a la carpeta del sitio. Crear un sitio IIS cuya ruta física apunte a esa carpeta, con binding HTTPS para el dominio. Publicarlo en la raíz del dominio, por ejemplo `https://soporte.empresa.com/`; las rutas actuales no están preparadas para un subdirectorio como `/tickets`.
+Copiar `iis/` a la carpeta del sitio. En IIS conservar el sitio y binding HTTPS existentes de sintesiserp.com.co. Para esta instalación, crear una aplicación IIS de alias `soporte` dentro del sitio existente sintesiserp.com.co, con pool propio y ruta física a esta carpeta. Quedará en `https://sintesiserp.com.co/soporte`. No reemplazar el sitio ERP existente. El script publica los recursos con base `/soporte/`; para otra ruta usar -ApiPath.
 
 Copiar `appsettings.Production.json.example` como `appsettings.Production.json` en el servidor y completar:
 
 | Campo | Qué configurar |
 |---|---|
-| AllowedHosts | Dominio real, sin https ni ruta; varios separados por punto y coma |
+| Frontend:PublicBaseUrl | Origen HTTPS del portal en Coolify; habilita CORS y retornos OAuth |
+| AllowedHosts | Dominio de la API, sin https ni ruta; varios separados por punto y coma |
 | ConnectionStrings:Tickets | Conexión SQL de ejecución; cifrado y certificado válido |
 | DataProtection:Path | Carpeta persistente de claves, fuera del sitio |
 | Mail:PublicBaseUrl | URL HTTPS pública exacta |
@@ -91,10 +94,10 @@ Microsoft/Google para INICIAR SESIÓN y Microsoft/Google como BUZÓN son configu
 
 ## 5. Verificar antes de atender clientes
 
-- `/health/live` debe devolver 200; `/health/ready`, 200 cuando SQL sea accesible. Readiness confirma conexión, no que todo el esquema/correo funcione.
-- Entrar con el administrador, crear un agente y un cliente, comprobar permisos, ticket y notas internas.
+- `/soporte/health/live` debe devolver 200; `/soporte/health/ready`, 200 cuando SQL sea accesible. Readiness confirma conexión, no que todo el esquema/correo funcione.
+- Abrir el FRONTEND en Coolify y entrar con el administrador, crear un agente y un cliente, comprobar permisos, ticket y notas internas.
 - Probar un invitado real: verificación, creación, confirmación, respuesta del agente y respuesta por correo del cliente.
-- Registrar callbacks HTTPS `/signin-microsoft` y `/signin-google` para el dominio real si se activan esos botones; vincular desde Mi cuenta.
+- Registrar callbacks HTTPS `/signin-microsoft` y `/signin-google` para el dominio de la API si se activan esos botones; vincular desde Mi cuenta.
 - Registrar en Administración de chat los orígenes HTTPS exactos del ERP y probar el widget desde ese dominio.
 - Reciclar el pool y reiniciar el Worker: comprobar sesiones, claves, cola y logs.
 - Los adjuntos del chat se almacenan en SQL; incluirlos en capacidad/backup. El análisis antimalware y los adjuntos entrantes por correo siguen pendientes.

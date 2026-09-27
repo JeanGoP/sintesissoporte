@@ -1,48 +1,82 @@
-# Próxima etapa: Sidecil Tickets en Coolify
+# Frontend en Coolify; backend C# en IIS
 
-Coolify despliega contenedores en servidores Linux. La entrega `artifacts/servidor/.../iis` está preparada para Windows/IIS y NO se carga como un sitio IIS dentro de Coolify. Esta guía describe el despliegue que hay que preparar; todavía no se han creado ni probado sus Dockerfiles ni se ha desplegado en Coolify.
+## Distribución final
 
-## Elegir el destino
+| Componente | Destino | Dirección acordada |
+|---|---|---|
+| Portal React | Coolify, contenedor Nginx estático | https://soporte.sintesiserp.com.co |
+| API ASP.NET Core | Servidor Windows / IIS | https://sintesiserp.com.co/soporte |
+| SQL Server y Worker | Servidor/red privada de Sidecil | Sin dominio público de base de datos |
 
-- Windows/IIS: usar la entrega generada y la guía INSTALAR-SERVIDOR.md.
-- Coolify: construir la misma aplicación ASP.NET Core para Linux, con Kestrel dentro de un contenedor, y un segundo contenedor para el Worker. Mantener SQL Server, que puede estar en el servidor Windows existente mediante red privada/VPN.
+El contenedor de Coolify NO contiene C#, SQL Server, Worker ni credenciales. El navegador se comunica directamente por HTTPS con IIS. En IIS crear una APLICACIÓN de alias `soporte` dentro del sitio sintesiserp.com.co, con pool propio «No Managed Code» y ruta física a la carpeta publicada. No basta una carpeta virtual. Conservar los bindings del sitio existente y revisar configuración heredada. La API debe ser accesible desde los equipos de los usuarios; no basta con que Coolify alcance el servidor.
 
-En ambos casos conviene servir frontend y API bajo el mismo dominio: la aplicación usa cookies y CSRF de mismo origen. Separar el frontend en otro dominio requiere adaptar rutas, cookies y CORS; no está incluido en esta entrega.
+Usar subdominios del MISMO dominio registrable y HTTPS en ambos. Las cookies siguen siendo HttpOnly, específicas del host de la API y SameSite; no se comparte una cookie Domain entre subdominios. Un dominio provisional de Coolify ajeno al dominio de la API no es una configuración soportada para las sesiones actuales. No se ha cambiado SameSite a None ni se depende de cookies de terceros.
 
-## Información necesaria para el despliegue real
+## 1. Configurar el servidor IIS
 
-1. URL de tu panel Coolify y acceso a un proyecto/servidor autorizado.
-2. Servidor Linux conectado a Coolify por SSH, Docker, arquitectura y recursos disponibles. Dimensionar según compilaciones, usuarios, archivos y base; monitorizar almacenamiento y memoria.
-3. Dominio de producción, acceso a DNS y certificado HTTPS gestionado por el proxy. DNS debe apuntar al servidor de aplicaciones correcto.
-4. SQL Server: host privado, puerto, base, certificado de confianza y cuentas separadas para despliegue y ejecución. LocalDB e Integrated Security de Windows no se trasladan automáticamente a Linux.
-5. Buzón SMTP/IMAP, método de autenticación, remitente y política SPF/DKIM/DMARC. Leer CORREO.md sobre OAuth y validación de respuestas.
-6. Credenciales OAuth para login, solo si se habilita Microsoft/Google; callbacks bajo el dominio de producción.
-7. Acceso de Coolify a GitHub. Para repositorio privado, usar su integración GitHub o clave de despliegue con el menor acceso necesario.
+Generar una nueva entrega con scripts/Publish-Server.ps1 y seguir INSTALAR-SERVIDOR.md para Hosting Bundle .NET 10, SQL, claves persistentes, bootstrap y Worker. Configurar en la API:
 
-## Trabajo técnico que falta para Coolify
+```text
+ASPNETCORE_ENVIRONMENT=Production
+AllowedHosts=sintesiserp.com.co
+Hosting__PathBase=/soporte
+Frontend__PublicBaseUrl=https://soporte.sintesiserp.com.co
+ConnectionStrings__Tickets=CONEXION_PRIVADA_SQL
+DataProtection__Path=C:\ProgramData\SidecilTickets\keys
+Mail__PublicBaseUrl=https://soporte.sintesiserp.com.co
+```
 
-- Dockerfile con compilación Node + SDK .NET, frontend dentro de wwwroot, y runtime ASP.NET Core 10 para Linux. Worker en imagen/proceso separado, sin puerto público. Excluir .local, .tools, artifacts, .git y secretos del contexto mediante .dockerignore.
-- Compose o dos recursos coordinados, con reinicio, logs y un único lector IMAP. No exponer SQL ni el puerto interno de Kestrel directamente a Internet.
-- Configurar Forwarded Headers de ASP.NET Core para confiar únicamente en el proxy/red conocidos. Hoy la API está configurada para IIS: antes de Coolify hay que adaptar y probar este punto para que HTTPS, cookies, callbacks OAuth e IP de los límites de solicitudes funcionen detrás del proxy. No confiar indiscriminadamente en cabeceras enviadas por clientes.
-- Volumen persistente para DataProtection__Path, permisos del usuario del contenedor y respaldo protegido. En Linux el código actual NO cifra las claves con DPAPI: definir protección en reposo acorde al servidor y acceso restringido. No dejar las claves en la capa efímera de la imagen.
-- Variables de ejecución privadas: ASPNETCORE_ENVIRONMENT=Production, DOTNET_ENVIRONMENT=Production, AllowedHosts, ConnectionStrings__Tickets, DataProtection__Path y Mail; OAuth opcional. No meter secretos en argumentos de build ni commits.
-- Ejecutar migraciones y bootstrap como tareas controladas con credenciales temporales de despliegue; el proceso normal usa credenciales de ejecución. No usar datos demo ni migrar automáticamente cada réplica.
-- Probar contenedores, migraciones, proxy, login, roles, correo y reinicio con persistencia antes del cambio de DNS.
+Frontend__PublicBaseUrl es el origen exacto autorizado por CORS y el destino fijo de los retornos OAuth. No acepta rutas, comodines ni destinos proporcionados por el navegador. Las operaciones conservan CSRF y ETag/If-Match. No añadir CORS '*' ni cabeceras duplicadas desde IIS.
 
-## Pasos en el panel cuando la adaptación esté lista
+El Worker conserva su propia conexión SQL y configuración privada del buzón. Mail__PublicBaseUrl debe ser la URL del FRONTEND en ambos procesos: allí se abre /confirmar-solicitud. No poner localhost en producción.
 
-1. Crear proyecto y entorno de producción. Añadir el repositorio JeanGoP/sintesissoporte, rama main, mediante la integración Git autorizada.
-2. Elegir Docker Compose o Dockerfile según los archivos que preparemos; no desplegar hoy por autodetección suponiendo que ya está adaptado.
-3. Configurar variables privadas y volumen de claves. Para el servicio web, indicar su puerto interno real (por ejemplo 8080 si se configura así) y asignar el dominio HTTPS. El Worker no lleva dominio.
-4. Preparar SQL y administrador, desplegar y comprobar logs, `/health/live`, `/health/ready` y flujos reales. En Compose definir explícitamente los healthchecks de los servicios.
-5. Activar despliegue automático desde Git solo después de validar la primera entrega y definir cómo se aplicarán futuras migraciones. Un push de código no debe ejecutar cambios de esquema sin control.
-6. Configurar alertas, retención de logs, copias de SQL y claves y probar recuperación. Mantener una versión anterior disponible y plan de rollback compatible con la base.
+Microsoft y Google deben registrar los callbacks del BACKEND:
+
+```text
+https://sintesiserp.com.co/soporte/signin-microsoft
+https://sintesiserp.com.co/soporte/signin-google
+```
+
+Después de autenticar, IIS devuelve al usuario al frontend configurado. Los secretos OAuth se guardan exclusivamente en IIS. La API sin Frontend__PublicBaseUrl mantiene el modo local anterior, por compatibilidad.
+
+El widget embebido conserva su ruta /chat-widget y sus recursos en IIS para mantener la política de enmarcado específica de cada ERP. El panel alojado en Coolify genera automáticamente el script del widget con el dominio de la API. Por eso no se debe borrar wwwroot del paquete de IIS: contiene los recursos del widget. El portal principal se sirve desde Coolify; la raíz de la API redirige al portal cuando Frontend__PublicBaseUrl está configurado.
+
+## 2. Configurar Coolify
+
+1. Conectar tu servidor Linux a Coolify y configurar el DNS del frontend hacia ese servidor. Mantener el DNS de la API apuntando a IIS. Ambos deben tener HTTPS válido.
+2. Crear un recurso Application desde GitHub: repositorio JeanGoP/sintesissoporte, rama main. Si es privado, autorizar acceso mediante la integración GitHub o clave de despliegue.
+3. Seleccionar Dockerfile como método de compilación.
+4. Directorio base/contexto: raíz del repositorio (`/`). Dockerfile: `/deploy/coolify/Dockerfile`.
+5. Añadir `VITE_API_URL=https://sintesiserp.com.co/soporte` como variable disponible DURANTE LA COMPILACIÓN (Build Variable/build argument). Incluir `/soporte`, pero NO `/api/v1`, consultas ni secretos. El Dockerfile declara ARG VITE_API_URL y exige HTTPS.
+6. Puerto interno: `80`. Dominio: `https://soporte.sintesiserp.com.co`. Configurar comprobación HTTP `/health` en puerto 80; solo comprueba el frontend, no SQL ni el backend.
+7. Desplegar y revisar logs. Las rutas React como /account funcionan al recargar gracias al fallback de Nginx.
+8. Al cambiar VITE_API_URL, RECOMPILAR/redeploy: reiniciar el contenedor no cambia los archivos ya compilados.
+
+No añadir conexión SQL, claves de correo ni secretos Microsoft/Google en Coolify ni en variables VITE_. VITE_ es configuración pública incrustada en JavaScript. Nginx entrega archivos estáticos; no necesita volumen de base de datos ni claves de sesión.
+
+## 3. Verificación del despliegue
+
+- Abrir el portal y comprobar en Red del navegador que /api/v1/... va al dominio de IIS y no al de Coolify.
+- Iniciar sesión, recargar /account, consultar y actualizar un ticket, descargar un adjunto y cerrar sesión.
+- Revisar que los preflight OPTIONS reciban el origen exacto y credenciales permitidas; que orígenes no autorizados no reciban permiso CORS.
+- Probar los dos botones OAuth con aplicaciones reales configuradas; la cookie se establece en la API y el retorno termina en el portal.
+- Crear una solicitud invitada, confirmar el enlace enviado por correo y verificar la conversación. Probar el widget desde el ERP registrado.
+- Comprobar /health/ready en IIS, el servicio Worker, backups de SQL y claves, límites de adjuntos y entrega real del buzón.
+
+## Compilación y pruebas locales
+
+`npm run build:frontend` dentro de src/sidecil-tickets-web genera únicamente `dist/`. `npm run build` conserva el paquete de recursos de IIS. `VITE_API_URL` se define antes de la compilación independiente.
+
+La prueba split-hosting.spec.ts utiliza frontend http://localhost:5180 y API http://localhost:5099/soporte, con Hosting__PathBase=/soporte, Frontend__PublicBaseUrl=http://localhost:5180 y VITE_API_URL=http://localhost:5099/soporte. Usar Development, SQL demo y definir SIDECIL_SPLIT_TEST=1 al ejecutar esa prueba. Comprueba login real por CORS, cookies, CSRF, lectura de ETag y logout. HTTP local solo sirve para desarrollo; no demuestra TLS del servidor final.
+
+Docker local: `docker build -f deploy/coolify/Dockerfile --build-arg VITE_API_URL=https://sintesiserp.com.co/soporte -t sidecil-frontend .`. El motor Docker debe estar activo. La compilación de React y las pruebas locales no sustituyen la prueba de la imagen en el servidor Coolify.
+
+## Actualizaciones
+
+Los cambios se sincronizan con GitHub mediante commits en español. Coolify puede reconstruir automáticamente el frontend desde main cuando se active su integración. Eso NO actualiza IIS: publicar y copiar el backend por separado, ejecutar migraciones revisadas cuando existan y verificar compatibilidad de ambas versiones. Para cambios de API incompatibles, coordinar la publicación; conservar versión anterior y backups.
 
 ## Fuentes oficiales
 
-- https://coolify.io/docs/start-with-self-hosted
-- https://coolify.io/docs/applications/
-- https://coolify.io/docs/core/networking-in-coolify
-- https://coolify.io/docs/core/networking/domains
-
-No se ha conectado ningún servidor externo ni cambiado DNS. El siguiente paso es preparar y verificar los contenedores para la infraestructura elegida.
+- https://coolify.io/docs/applications/configuration/environment-variables
+- https://coolify.io/docs/applications/builds/dockerfile
+- https://learn.microsoft.com/es-es/aspnet/core/security/cors?view=aspnetcore-10.0

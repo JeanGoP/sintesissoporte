@@ -53,8 +53,10 @@ public sealed class PortalOidcTests
     [InlineData("Google", "audience")]
     [InlineData("Google", "signature")]
     [InlineData("Microsoft", "issuer")]
-    public async Task LinkingAndPortalLoginValidateIdentityAndPreserveRole(string provider, string failure) {
-        using var factory = new PortalOidcFactory();
+    [InlineData("Google", "", "https://soporte.example.com")]
+    [InlineData("Microsoft", "", "https://soporte.example.com")]
+    public async Task LinkingAndPortalLoginValidateIdentityAndPreserveRole(string provider, string failure, string frontend = "") {
+        using var factory = new PortalOidcFactory(frontend);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
         string id, email;
         using (var scope = factory.Services.CreateScope()) {
@@ -71,27 +73,48 @@ public sealed class PortalOidcTests
         using var result = await client.GetAsync(callback);
         Assert.Equal(HttpStatusCode.Redirect, result.StatusCode);
         if (failure.Length > 0) {
-            Assert.Equal("/?external=failed", result.Headers.Location!.OriginalString);
+            Assert.Equal(frontend + "/?external=failed", result.Headers.Location!.OriginalString);
             using var scope = factory.Services.CreateScope();
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             Assert.Empty(await users.GetLoginsAsync((await users.FindByIdAsync(id))!)); return;
         }
-        Assert.True(result.Headers.Location!.OriginalString == "/account?external=linked", factory.Backchannel.LastFailure ?? "Vinculación rechazada");
+        Assert.True(result.Headers.Location!.OriginalString == frontend + "/account?external=linked", factory.Backchannel.LastFailure ?? "Vinculación rechazada");
         await Csrf(client); await client.PostAsJsonAsync("/api/v1/auth/logout", new { });
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/auth/me")).StatusCode);
         callback = await Challenge(client, factory, provider, false, "");
         using var login = await client.GetAsync(callback);
-        Assert.Equal("/", login.Headers.Location!.OriginalString);
+        Assert.Equal(frontend + "/", login.Headers.Location!.OriginalString);
         var me = await client.GetFromJsonAsync<JsonElement>("/api/v1/auth/me");
         Assert.Equal(id, me.GetProperty("id").GetString()); Assert.Equal("Requester", me.GetProperty("role").GetString());
         Assert.Equal(email, me.GetProperty("email").GetString());
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/admin/chat/sites")).StatusCode);
         using var replay = await client.GetAsync(callback);
-        Assert.Equal("/?external=failed", replay.Headers.Location!.OriginalString);
+        Assert.Equal(frontend + "/?external=failed", replay.Headers.Location!.OriginalString);
         await Csrf(client);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/v1/auth/connections/" + provider + "/remove", new { password = Password })).StatusCode);
         var connections = await client.GetFromJsonAsync<JsonElement>("/api/v1/auth/connections");
         Assert.Equal(0, connections.GetProperty("linked").GetArrayLength());
+    }
+    [Fact]
+    public async Task OAuthCallbackPreservesIisApplicationPath()
+    {
+        using var factory = new PortalOidcFactory("https://soporte.sintesiserp.com.co");
+        using var application = factory.WithWebHostBuilder(builder => builder.UseSetting("Hosting:PathBase", "/soporte"));
+        using var client = application.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        var csrf = await client.GetFromJsonAsync<JsonElement>("/soporte/api/v1/auth/csrf");
+        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrf.GetProperty("token").GetString());
+        var begin = await client.PostAsJsonAsync("/soporte/api/v1/auth/external/Google", new {});
+        begin.EnsureSuccessStatusCode();
+        var start = (await begin.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("url").GetString();
+        var challenge = await client.GetAsync("/soporte" + start);
+        var query = QueryHelpers.ParseQuery(challenge.Headers.Location!.Query);
+        Assert.Equal("https://localhost/soporte/signin-google", query["redirect_uri"]);
+        factory.Backchannel.Provider = "Google";
+        factory.Backchannel.Nonce = query["nonce"].ToString();
+        factory.Backchannel.Challenge = query["code_challenge"].ToString();
+        var callback = QueryHelpers.AddQueryString("/soporte/signin-google", new Dictionary<string,string?> { ["state"] = query["state"].ToString(), ["code"] = "test-code" });
+        var result = await client.GetAsync(callback);
+        Assert.Equal("https://soporte.sintesiserp.com.co/?external=unlinked", result.Headers.Location!.AbsoluteUri);
     }
     [Fact]
     public async Task UnlinkedEmailCannotTakeOverAnExistingAccount() {
@@ -115,8 +138,10 @@ public sealed class PortalOidcFactory : WebApplicationFactory<Program>
     private bool cleaned;
     public List<string> CreatedUsers { get; } = [];
     public FakeIdentityBackchannel Backchannel { get; } = new();
-    public PortalOidcFactory()
+    private readonly string frontend;
+    public PortalOidcFactory(string frontend = "")
     {
+        this.frontend = frontend;
         foreach (var provider in new[] { "Google", "Microsoft" }) foreach (var field in new[] { "ClientId", "ClientSecret" }) {
             var key = $"ExternalLogin__{provider}__{field}"; previous[key] = Environment.GetEnvironmentVariable(key);
             Environment.SetEnvironmentVariable(key, field == "ClientId" ? "local-test-client" : "local-test-secret");
@@ -125,6 +150,7 @@ public sealed class PortalOidcFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.UseSetting("Frontend:PublicBaseUrl", frontend);
         builder.UseContentRoot(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../src/Sidecil.Tickets.Api")));
         builder.ConfigureServices(services => {
             foreach (var provider in new[] { "Google", "Microsoft" }) services.PostConfigure<OpenIdConnectOptions>("Portal" + provider, options => {

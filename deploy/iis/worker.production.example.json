@@ -2,7 +2,7 @@
   "ConnectionStrings": { "Tickets": "Server=TU-SERVIDOR-SQL;Database=SidecilTickets;Integrated Security=True;Encrypt=True;TrustServerCertificate=False" },
   "Mail": {
     "Mode": "Disabled",
-    "PublicBaseUrl": "https://soporte.TU-DOMINIO.com",
+    "PublicBaseUrl": "https://soporte.sintesiserp.com.co",
     "FromAddress": "soporte@TU-DOMINIO.com",
     "FromName": "Sidecil · Atención al cliente",
     "AccountKey": "sidecil-support",

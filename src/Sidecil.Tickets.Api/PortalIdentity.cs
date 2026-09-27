@@ -70,7 +70,7 @@ public static class PortalIdentity
                         context.HandleResponse();
                         await CompleteAsync(context, provider);
                     },
-                    OnRemoteFailure = context => { context.HandleResponse(); context.Response.Redirect("/?external=failed"); return Task.CompletedTask; }
+                    OnRemoteFailure = context => { context.HandleResponse(); context.Response.Redirect(FrontendHosting.ReturnUrl(context.HttpContext, "/?external=failed")); return Task.CompletedTask; }
                 };
             });
         }
@@ -79,7 +79,7 @@ public static class PortalIdentity
     private static async Task CompleteAsync(TicketReceivedContext context, string provider)
     {
         var http = context.HttpContext;
-        void Failed() => http.Response.Redirect("/?external=failed");
+        void Failed() => http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/?external=failed"));
         if (context.Properties is null || !context.Properties.Items.TryGetValue("portal-attempt", out var attemptId) || !Guid.TryParse(attemptId, out var id)) { Failed(); return; }
         var db = http.RequestServices.GetRequiredService<TicketsDbContext>();
         var users = http.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
@@ -98,18 +98,18 @@ public static class PortalIdentity
             var user = session.Succeeded ? await users.GetUserAsync(session.Principal!) : null;
             if (user?.Id != userId || await users.GetSecurityStampAsync(user) != attempt.SecurityStamp || await users.IsLockedOutAsync(user)) { Failed(); return; }
             var owner = await users.FindByLoginAsync(provider, key);
-            if (owner is not null || (await users.GetLoginsAsync(user)).Any(x => x.LoginProvider == provider)) { http.Response.Redirect("/account?external=conflict"); return; }
+            if (owner is not null || (await users.GetLoginsAsync(user)).Any(x => x.LoginProvider == provider)) { http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/account?external=conflict")); return; }
             var result = await users.AddLoginAsync(user, new UserLoginInfo(provider, key, provider));
             if (!result.Succeeded) { Failed(); return; }
             await tx.CommitAsync();
-            http.Response.Redirect("/account?external=linked");
+            http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/account?external=linked"));
         } else {
             var user = await users.FindByLoginAsync(provider, key);
-            if (user is null) { await tx.CommitAsync(); http.Response.Redirect("/?external=unlinked"); return; }
+            if (user is null) { await tx.CommitAsync(); http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/?external=unlinked")); return; }
             // Identity checks lockout and any configured confirmation/2FA requirements.
             var result = await signIn.ExternalLoginSignInAsync(provider, key, isPersistent: false, bypassTwoFactor: false);
             await tx.CommitAsync();
-            http.Response.Redirect(result.Succeeded ? "/" : "/?external=failed");
+            http.Response.Redirect(FrontendHosting.ReturnUrl(http, result.Succeeded ? "/" : "/?external=failed"));
         }
     }
 

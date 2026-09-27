@@ -1,8 +1,13 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([string]$NodeExecutable = 'node')
+param([string]$NodeExecutable = 'node', [string]$ApiPath = '/soporte')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
+if ($ApiPath -notmatch '^(/[A-Za-z0-9_-]+)*/?$') { throw 'ApiPath inválido.' }
+$previousApiPath = $env:SIDECIL_API_PATH
+$previousApiUrl = $env:VITE_API_URL
+$env:SIDECIL_API_PATH = $ApiPath
+$env:VITE_API_URL = ''
 Push-Location $root
 try {
     $sdk = Join-Path $root '.tools/dotnet/dotnet.exe'
@@ -61,4 +66,4 @@ try {
     Compress-Archive -Path (Join-Path $release '*') -DestinationPath "$release.zip"
     Write-Host "Entrega verificada: $release"
     Write-Host "Archivo para transferir: $release.zip"
-} finally { Pop-Location }
+} finally { Pop-Location; $env:SIDECIL_API_PATH = $previousApiPath; $env:VITE_API_URL = $previousApiUrl }

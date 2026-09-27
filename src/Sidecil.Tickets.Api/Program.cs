@@ -12,6 +12,13 @@ using Sidecil.Tickets.Api;
 using Sidecil.Tickets.Infrastructure.Mail;
 
 var builder = WebApplication.CreateBuilder(args);
+var frontendOrigin = FrontendHosting.Origin(builder.Configuration, builder.Environment.IsDevelopment());
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => {
+    if (frontendOrigin.Length > 0) policy.WithOrigins(frontendOrigin)
+        .AllowCredentials().WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+        .WithHeaders("Content-Type", "X-CSRF-TOKEN", "If-Match", "Authorization", "X-Sidecil-Widget")
+        .WithExposedHeaders("ETag", "Location");
+}));
 var connection = builder.Configuration.GetConnectionString("Tickets")
     ?? throw new InvalidOperationException("Configura ConnectionStrings__Tickets.");
 builder.Services.AddDbContext<TicketsDbContext>(o => o.UseSqlServer(connection));
@@ -68,6 +75,7 @@ builder.Services.AddRateLimiter(o => {
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 var app = builder.Build();
+if (builder.Configuration["Hosting:PathBase"] is { Length: > 0 } apiPath) app.UsePathBase(apiPath);
 if (args.Contains("--seed-demo") || args.Contains("--bootstrap")) {
     await Bootstrap.RunAsync(app.Services, app.Environment.IsDevelopment(), args.Contains("--seed-demo"));
     return;
@@ -97,7 +105,9 @@ app.Use(async (context, next) => {
     if (context.Request.Path.StartsWithSegments("/api")) context.Response.Headers.CacheControl = "no-store";
     await next();
 });
-app.UseDefaultFiles();
+app.UseRouting();
+app.UseCors("Frontend");
+if (frontendOrigin.Length == 0) app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -155,7 +165,15 @@ ChatEndpoints.Map(app);
 api.MapGet("/tickets/{id:guid}/attachments/{fileId:guid}", (Guid id, Guid fileId, HttpContext c, TicketService s) => s.AttachmentAsync(c, id, fileId));
 EmailEndpoints.Map(app);
 app.Map("/api/{**path}", () => Results.NotFound());
-app.MapFallbackToFile("index.html");
+if (frontendOrigin.Length == 0) app.MapFallbackToFile("index.html");
+else {
+    // The embedded widget retains its per-integration framing policy on the API host.
+    app.MapGet("/chat-widget", async (HttpContext context, IWebHostEnvironment env) => {
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.SendFileAsync(Path.Combine(env.WebRootPath, "index.html"));
+    });
+    app.MapGet("/", () => Results.Redirect(frontendOrigin + "/"));
+}
 await app.RunAsync();
 
 public partial class Program { }

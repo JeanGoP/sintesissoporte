@@ -1,3 +1,4 @@
+import { backendUrl } from "./backend";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, TextField, Switch } from "@mui/material";
@@ -22,7 +23,7 @@ export function ChatSettings() {
     sites.data?.find((s) => s.enabled) ||
     sites.data?.[0];
   const snippet = site
-    ? `<script src="${location.origin}/sidecil-chat.js" data-site="${site.id}" defer></script>`
+    ? `<script src="${new URL(backendUrl("/sidecil-chat.js"), location.origin).href}" data-site="${site.id}" defer></script>`
     : "";
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -176,7 +177,7 @@ export function ChatSettings() {
                 </Button>
                 <Button
                   startIcon={<ExternalLink size={16} />}
-                  href={"/chat-demo.html?site=" + site.id}
+                  href={backendUrl("/chat-demo.html?site=" + site.id)}
                   target="_blank"
                   rel="noopener"
                 >

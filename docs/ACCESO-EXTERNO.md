@@ -16,7 +16,7 @@ Se conservan el mismo usuario, rol, organización y tickets. No se crean cuentas
 
 En Microsoft Entra, registra una aplicación **web** compatible con cuentas de cualquier directorio organizativo y cuentas Microsoft personales. Registra la URI exacta:
 
-`https://soporte.empresa.com/signin-microsoft`
+`https://sintesiserp.com.co/soporte/signin-microsoft`
 
 Configura el identificador de aplicación y su secreto en el servidor:
 
@@ -27,14 +27,14 @@ Configura el identificador de aplicación y su secreto en el servidor:
 
 Configura la pantalla de consentimiento y crea un cliente OAuth de tipo **aplicación web**. Durante pruebas añade las cuentas de prueba autorizadas. Registra la URI exacta:
 
-`https://soporte.empresa.com/signin-google`
+`https://sintesiserp.com.co/soporte/signin-google`
 
 Configura:
 
 - `ExternalLogin__Google__ClientId`
 - `ExternalLogin__Google__ClientSecret`
 
-Sustituye el dominio por el del portal de Sidecil. Para desarrollo registra también las URI `http://localhost:5080/signin-microsoft` y `http://localhost:5080/signin-google`, según lo permita cada proveedor. Usa las rutas del portal, no las antiguas rutas del chat.
+Sustituye el dominio por el de la API de Sidecil en IIS. Configura Frontend__PublicBaseUrl con el origen del portal en Coolify para que el retorno termine allí. Para desarrollo registra también las URI `http://localhost:5080/signin-microsoft` y `http://localhost:5080/signin-google`, según lo permita cada proveedor. Usa las rutas del portal, no las antiguas rutas del chat.
 
 El archivo `deploy/external-login.example.json` muestra la estructura sin credenciales. Guarda los secretos en la configuración protegida de IIS, nunca en el repositorio, JavaScript o mensajes de soporte. Reinicia la API después de configurarlos. Los proveedores se activan de forma independiente; **Mi cuenta** muestra su estado. Mientras falten credenciales, los botones aparecen deshabilitados y sigue disponible el acceso habitual.
 

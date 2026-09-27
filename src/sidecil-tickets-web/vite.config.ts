@@ -1,10 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  base:
+    mode === "standalone"
+      ? "/"
+      : (process.env.SIDECIL_API_PATH || "/").replace(/\/?$/, "/"),
   server: { port: 5173, proxy: { "/api": "http://localhost:5080" } },
   build: {
-    outDir: "../Sidecil.Tickets.Api/wwwroot",
+    outDir: mode === "standalone" ? "dist" : "../Sidecil.Tickets.Api/wwwroot",
     emptyOutDir: true,
     rollupOptions: {
       output: {
@@ -16,4 +20,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

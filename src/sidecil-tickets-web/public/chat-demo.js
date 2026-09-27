@@ -6,7 +6,7 @@
     return;
   }
   const script = document.createElement("script");
-  script.src = "/sidecil-chat.js";
+  script.src = "./sidecil-chat.js";
   script.dataset.site = site;
   document.body.append(script);
 })();
