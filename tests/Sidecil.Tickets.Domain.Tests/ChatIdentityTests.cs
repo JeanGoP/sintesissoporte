@@ -90,11 +90,18 @@ public sealed partial class PortalOidcTests
             Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync(path + "/draft", draft with { email = "other-" + email })).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/send", new { ticketId = other })).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/send", new { ticketId = closed })).StatusCode);
+            using var upload = new HttpRequestMessage(HttpMethod.Post, path + "/attachments") { Content = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes("Archivo de soporte de prueba")) };
+            upload.Headers.Add("X-File-Name", Uri.EscapeDataString("captura de información.txt"));
+            using var uploaded = await client.SendAsync(upload); uploaded.EnsureSuccessStatusCode();
+            var attachmentId = (await uploaded.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
             var response = await client.PostAsJsonAsync(path + "/send", new { ticketId = own }); response.EnsureSuccessStatusCode();
             (await client.PostAsJsonAsync(path + "/send", new { ticketId = own })).EnsureSuccessStatusCode();
             using (var scope = app.Services.CreateScope()) {
                 var db = scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
                 var t = await db.Tickets.Include(t => t.Messages).SingleAsync(t => t.PublicId == own);
+                var attached = await (from file in db.ChatAttachments join conversation in db.ChatConversations on file.ConversationId equals conversation.Id join pending in db.GuestSubmissions on conversation.GuestSubmissionId equals pending.Id where file.Id == attachmentId && pending.TicketId == t.Id select file).SingleAsync();
+                Assert.Equal("captura de información.txt", attached.FileName);
+                Assert.Equal("Archivo de soporte de prueba", System.Text.Encoding.UTF8.GetString(attached.Content));
                 Assert.True(t.HasCustomerReply); Assert.Equal(TicketStatus.InProgress, t.Status);
                 Assert.Single(t.Messages, m => m.Source == "Chat");
                 Assert.Equal(MessageVisibility.Public, t.Messages.Single(m => m.Source == "Chat").Visibility);

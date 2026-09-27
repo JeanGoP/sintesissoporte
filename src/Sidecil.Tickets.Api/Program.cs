@@ -16,7 +16,7 @@ var frontendOrigin = FrontendHosting.Origin(builder.Configuration, builder.Envir
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => {
     if (frontendOrigin.Length > 0) policy.WithOrigins(frontendOrigin)
         .AllowCredentials().WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-        .WithHeaders("Content-Type", "X-CSRF-TOKEN", "If-Match", "Authorization", "X-Sidecil-Widget")
+        .WithHeaders("Content-Type", "X-CSRF-TOKEN", "If-Match", "Authorization", "X-Sidecil-Widget", "X-File-Name")
         .WithExposedHeaders("ETag", "Location");
 }));
 var connection = builder.Configuration.GetConnectionString("Tickets")
