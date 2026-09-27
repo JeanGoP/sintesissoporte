@@ -356,8 +356,16 @@ export function DetailPage({ user }: { user: User }) {
                   disabled={busy}
                   className="wide-select"
                   value=""
-                  onChange={(e) => {
-                    setNext(e.target.value as Status);
+                  onChange={async (e) => {
+                    const status = e.target.value as Status;
+                    if (t.status === "New" && status === "InProgress") {
+                      if (await mutate("/transitions", {
+                        status,
+                        reason: "Inicio de la atención del ticket.",
+                      })) setNotice("Ticket en curso.");
+                      return;
+                    }
+                    setNext(status);
                     setReason("");
                     setError(undefined);
                   }}
