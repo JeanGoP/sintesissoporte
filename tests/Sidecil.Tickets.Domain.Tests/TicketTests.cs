@@ -17,8 +17,26 @@ public sealed class TicketTests {
     [Theory] [InlineData("Requester", false)] [InlineData("Agent", true)] [InlineData("Admin", true)]
     public void InternalMessagesRequireStaff(string role, bool expected) =>
         Assert.Equal(expected, AccessRules.CanReadMessage(role, MessageVisibility.Internal));
-    [Fact] public void CannotCloseNewTicketWithoutResolution() =>
-        Assert.Throws<InvalidOperationException>(() => new Ticket().Transition(TicketStatus.Closed, "cerrar", DateTime.UtcNow));
+    [Theory]
+    [InlineData(TicketStatus.New)]
+    [InlineData(TicketStatus.InProgress)]
+    [InlineData(TicketStatus.WaitingRequester)]
+    [InlineData(TicketStatus.WaitingThirdParty)]
+    [InlineData(TicketStatus.Resolved)]
+    public void ClosingRequiresReasonAndCancellationIsUnavailable(TicketStatus status) {
+        var ticket = new Ticket { Status = status };
+        Assert.DoesNotContain(TicketStatus.Cancelled, Ticket.NextStatuses(status));
+        Assert.Throws<InvalidOperationException>(() => ticket.Transition(TicketStatus.Cancelled, "Duplicado", DateTime.UtcNow));
+        Assert.Throws<InvalidOperationException>(() => ticket.Transition(TicketStatus.Closed, " ", DateTime.UtcNow));
+        ticket.Transition(TicketStatus.Closed, "Solicitud duplicada", DateTime.UtcNow);
+        Assert.Equal(TicketStatus.Closed, ticket.Status);
+    }
+    [Fact] public void LegacyCancelledTicketCanReopen() {
+        var ticket = new Ticket { Status = TicketStatus.Cancelled };
+        var now = DateTime.UtcNow;
+        ticket.Transition(TicketStatus.InProgress, "Reabrir solicitud", now);
+        Assert.Equal(now.AddHours(Ticket.TargetHours(ticket.Priority)), ticket.DueAt);
+    }
     [Fact] public void ResolutionRequiresReason() =>
         Assert.Throws<InvalidOperationException>(() => new Ticket { Status = TicketStatus.InProgress }.Transition(TicketStatus.Resolved, " ", DateTime.UtcNow));
     [Fact] public void ReopeningStartsNewResolutionTarget() {

@@ -253,7 +253,7 @@ export function InboxPage({
             onChange={(e) => filter(setStatus, e.target.value)}
           >
             <option value="">Todos los estados</option>
-            {Object.entries(statuses).map(([k, v]) => (
+            {Object.entries(statuses).filter(([key]) => key !== "Cancelled").map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
               </option>

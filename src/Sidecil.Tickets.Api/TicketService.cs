@@ -38,7 +38,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
             active = await active.CountAsync(),
             unassigned = await active.CountAsync(t => t.AssigneeId == null),
             overdue = await active.CountAsync(t => t.DueAt < now),
-            resolved = await visible.CountAsync(t => t.Status == TicketStatus.Resolved || t.Status == TicketStatus.Closed)
+            resolved = await visible.CountAsync(t => t.Status == TicketStatus.Resolved || t.Status == TicketStatus.Closed || t.Status == TicketStatus.Cancelled)
         };
         var query = visible;
         if (!string.IsNullOrWhiteSpace(search))
@@ -52,7 +52,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         if (!string.IsNullOrEmpty(status))
         {
             if (!Enum.TryParse<TicketStatus>(status, out var parsed) || !Enum.IsDefined(parsed)) return Bad("Estado inválido.");
-            query = query.Where(t => t.Status == parsed);
+            query = parsed == TicketStatus.Closed ? query.Where(t => t.Status == TicketStatus.Closed || t.Status == TicketStatus.Cancelled) : query.Where(t => t.Status == parsed);
         }
         if (!string.IsNullOrEmpty(priority))
         {
@@ -79,7 +79,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
                 t.Category,
                 t.ModuleId,
                 module = db.SupportModules.Where(m => m.Id == t.ModuleId).Select(m => m.Name).FirstOrDefault(),
-                t.Status,
+                Status = t.Status == TicketStatus.Cancelled ? TicketStatus.Closed : t.Status,
                 t.Priority,
                 t.CreatedAt,
                 t.UpdatedAt,
@@ -127,7 +127,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
             ticket.ModuleId,
             ticket.OrganizationId,
             module = await db.SupportModules.Where(m => m.Id == ticket.ModuleId).Select(m => m.Name).FirstOrDefaultAsync(),
-            ticket.Status,
+            Status = ticket.Status == TicketStatus.Cancelled ? TicketStatus.Closed : ticket.Status,
             ticket.Priority,
             ticket.CreatedAt,
             ticket.UpdatedAt,

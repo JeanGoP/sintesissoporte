@@ -31,12 +31,12 @@ public sealed class Ticket
 
     public static IReadOnlyList<TicketStatus> NextStatuses(TicketStatus status) => status switch
     {
-        TicketStatus.New => [TicketStatus.InProgress, TicketStatus.Cancelled],
-        TicketStatus.InProgress => [TicketStatus.WaitingRequester, TicketStatus.WaitingThirdParty, TicketStatus.Resolved, TicketStatus.Cancelled],
-        TicketStatus.WaitingRequester or TicketStatus.WaitingThirdParty => [TicketStatus.InProgress, TicketStatus.Cancelled],
+        TicketStatus.New => [TicketStatus.InProgress, TicketStatus.Closed],
+        TicketStatus.InProgress => [TicketStatus.WaitingRequester, TicketStatus.WaitingThirdParty, TicketStatus.Resolved, TicketStatus.Closed],
+        TicketStatus.WaitingRequester or TicketStatus.WaitingThirdParty => [TicketStatus.InProgress, TicketStatus.Closed],
         TicketStatus.Resolved => [TicketStatus.Closed, TicketStatus.InProgress],
         TicketStatus.Closed => [TicketStatus.InProgress],
-        TicketStatus.Cancelled => [],
+        TicketStatus.Cancelled => [TicketStatus.InProgress],
         _ => []
     };
 
@@ -44,7 +44,7 @@ public sealed class Ticket
     {
         if (!NextStatuses(Status).Contains(next)) throw new InvalidOperationException("Esta transición no está permitida.");
         if (string.IsNullOrWhiteSpace(reason)) throw new InvalidOperationException("Escribe el motivo o la solución del cambio.");
-        if (next == TicketStatus.InProgress && Status is TicketStatus.Resolved or TicketStatus.Closed)
+        if (next == TicketStatus.InProgress && Status is TicketStatus.Resolved or TicketStatus.Closed or TicketStatus.Cancelled)
         {
             DueAt = now.AddHours(TargetHours(Priority));
             ResolvedAt = null;

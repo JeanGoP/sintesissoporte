@@ -97,7 +97,7 @@ export const statuses: Record<Status, string> = {
   WaitingThirdParty: "Esperando tercero",
   Resolved: "Resuelto",
   Closed: "Cerrado",
-  Cancelled: "Cancelado",
+  Cancelled: "Cerrado",
 };
 export const priorities: Record<Priority, string> = {
   Low: "Baja",
