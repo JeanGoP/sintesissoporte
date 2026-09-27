@@ -5,6 +5,16 @@ import { Alert, Button, TextField } from "@mui/material";
 import { api, refreshCsrf } from "./api";
 import { ErrorBox } from "./shared";
 type Provider = { name: string; enabled: boolean };
+function MicrosoftLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 21 21" aria-hidden="true" focusable="false">
+      <path fill="#f25022" d="M0 0h10v10H0z" />
+      <path fill="#7fba00" d="M11 0h10v10H11z" />
+      <path fill="#00a4ef" d="M0 11h10v10H0z" />
+      <path fill="#ffb900" d="M11 11h10v10H11z" />
+    </svg>
+  );
+}
 export function ExternalLoginButtons() {
   const providers = useQuery({
     queryKey: ["login-providers"],
@@ -32,6 +42,7 @@ export function ExternalLoginButtons() {
         {(providers.data || []).map((provider) => (
           <Button
             key={provider.name}
+            startIcon={provider.name === "Microsoft" ? <MicrosoftLogo /> : undefined}
             variant="outlined"
             fullWidth
             disabled={busy || !provider.enabled}
