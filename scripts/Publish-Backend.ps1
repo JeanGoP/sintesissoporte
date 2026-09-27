@@ -25,6 +25,7 @@ try {
     if (!(Test-Path $production)) {
         Copy-Item deploy/backend.production.example.json $production
     }
+    Copy-Item scripts/Crear-Administrador.ps1 (Join-Path $root 'publish/Crear-Administrador.ps1')
     Write-Host "Backend publicado en: $(Join-Path $root 'publish')"
 } finally {
     Pop-Location
