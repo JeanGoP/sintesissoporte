@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Checkbox, FormControlLabel } from "@mui/material";
+import { Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Checkbox, FormControlLabel, Snackbar, Alert } from "@mui/material";
 import { api, type Directory } from "./api";
 import { ErrorBox } from "./shared";
 
@@ -11,8 +11,9 @@ export function UserRoleEditor({ user, modules }: { user: NonNullable<Directory[
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
+  const [notice, setNotice] = useState("");
   return <>
-    <Button onClick={() => { setRole(user.role); setSelected(user.moduleIds || []); setError(undefined); setOpen(true); }}>Cambiar rol</Button>
+    <Button onClick={() => { setRole(user.role); setSelected(user.moduleIds || []); setError(undefined); setNotice(""); setOpen(true); }}>Cambiar rol</Button>
     <Dialog open={open} onClose={() => !busy && setOpen(false)} fullWidth maxWidth="sm">
       <DialogTitle>Cambiar rol de usuario</DialogTitle>
       <DialogContent>
@@ -33,11 +34,17 @@ export function UserRoleEditor({ user, modules }: { user: NonNullable<Directory[
           setBusy(true); setError(undefined);
           try {
             await api("/admin/catalog/users/" + user.id + "/role", { method: "PUT", body: JSON.stringify({ role, moduleIds: role === "Agent" ? selected : [] }) });
+            const refreshed = (await api<Directory>("/directory", { cache: "no-store" })).data;
+            const saved = refreshed.users?.find(u => u.id === user.id);
+            if (saved?.role !== role)
+              throw new Error("El servidor no confirmó el nuevo rol. El cambio no se ha verificado; vuelve a intentarlo y comprueba que la API esté actualizada.");
+            client.setQueryData(["directory"], refreshed);
+            setNotice("Rol confirmado: " + (role === "Admin" ? "Administrador" : role === "Agent" ? "Agente" : "Solicitante") + ". La persona debe volver a iniciar sesión.");
             setOpen(false);
-            await client.invalidateQueries({ queryKey: ["directory"] });
           } catch (e) { setError(e); } finally { setBusy(false); }
-        }}>Confirmar cambio</Button>
+        }}>{busy ? "Guardando y verificando…" : "Guardar rol"}</Button>
       </DialogActions>
     </Dialog>
+    <Snackbar open={!!notice} autoHideDuration={8000} onClose={() => setNotice("")}><Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert></Snackbar>
   </>;
 }
