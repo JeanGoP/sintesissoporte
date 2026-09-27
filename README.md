@@ -56,7 +56,7 @@ Las pruebas cubren reglas de acceso y estados, API real sobre SQL Server, CSRF, 
 
 ## Publicar el backend
 
-Ejecutar `./scripts/Publish-Backend.ps1`. La publicación queda directamente en la carpeta `publish` de la raíz. Esa es la única carpeta que se copia al servidor para la aplicación `/soporte`. La configuración privada se completa en `publish/appsettings.Production.json`; no se sube a GitHub.
+Ejecutar `./scripts/Publish-Backend.ps1`. La publicación queda directamente en la carpeta `publish` de la raíz. Esa es la única carpeta que se copia al servidor para la aplicación `/API_SoporteSidecil`. La configuración privada se completa en `publish/appsettings.Production.json`; no se sube a GitHub.
 
 ## Límites de esta entrega y siguiente trabajo
 

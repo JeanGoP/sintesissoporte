@@ -12,10 +12,10 @@
 ## Distribución de producción acordada
 
 - Frontend React únicamente en Coolify: https://soporte.sintesiserp.com.co.
-- Backend C# en IIS: https://sintesiserp.com.co/soporte, como aplicación IIS con pool dedicado; no reemplazar el sitio ERP padre.
+- Backend C# en IIS: https://www.sintesiserp.com.co/API_SoporteSidecil, como aplicación IIS con pool dedicado; no reemplazar el sitio ERP padre.
 - SQL Server y Worker permanecen en el servidor/red de Sidecil.
 - La base de datos de producción se llama SidecilCloudSoporte. Usar ese nombre en futuras publicaciones; no renombrar ni modificar la base local de desarrollo.
-- Mantener soporte de PathBase /soporte en API, OAuth, recursos y widget; frontend usa VITE_API_URL y API usa Frontend__PublicBaseUrl.
+- Mantener soporte de PathBase /API_SoporteSidecil en API, OAuth, recursos y widget; frontend usa VITE_API_URL y API usa Frontend__PublicBaseUrl.
 - El widget embebido conserva recursos en IIS para la política de enmarcado por integración. No borrar wwwroot del paquete IIS.
 
 ## Entrega simplificada solicitada

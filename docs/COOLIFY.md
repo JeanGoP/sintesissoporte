@@ -5,21 +5,21 @@
 | Componente | Destino | Dirección acordada |
 |---|---|---|
 | Portal React | Coolify, contenedor Nginx estático | https://soporte.sintesiserp.com.co |
-| API ASP.NET Core | Servidor Windows / IIS | https://sintesiserp.com.co/soporte |
+| API ASP.NET Core | Servidor Windows / IIS | https://www.sintesiserp.com.co/API_SoporteSidecil |
 | SQL Server y Worker | Servidor/red privada de Sidecil | Sin dominio público de base de datos |
 
-El contenedor de Coolify NO contiene C#, SQL Server, Worker ni credenciales. El navegador se comunica directamente por HTTPS con IIS. En IIS crear una APLICACIÓN de alias `soporte` dentro del sitio sintesiserp.com.co, con pool propio «No Managed Code» y ruta física a la carpeta publicada. No basta una carpeta virtual. Conservar los bindings del sitio existente y revisar configuración heredada. La API debe ser accesible desde los equipos de los usuarios; no basta con que Coolify alcance el servidor.
+El contenedor de Coolify NO contiene C#, SQL Server, Worker ni credenciales. El navegador se comunica directamente por HTTPS con IIS. En IIS crear una APLICACIÓN de alias `API_SoporteSidecil` dentro del sitio sintesiserp.com.co, con pool propio «No Managed Code» y ruta física a la carpeta publicada. No basta una carpeta virtual. Conservar los bindings del sitio existente y revisar configuración heredada. La API debe ser accesible desde los equipos de los usuarios; no basta con que Coolify alcance el servidor.
 
 Usar subdominios del MISMO dominio registrable y HTTPS en ambos. Las cookies siguen siendo HttpOnly, específicas del host de la API y SameSite; no se comparte una cookie Domain entre subdominios. Un dominio provisional de Coolify ajeno al dominio de la API no es una configuración soportada para las sesiones actuales. No se ha cambiado SameSite a None ni se depende de cookies de terceros.
 
 ## 1. Configurar el servidor IIS
 
-Publicar con scripts/Publish-Backend.ps1 y copiar el contenido de publish a la aplicación IIS /soporte. El servidor necesita Hosting Bundle .NET 10 y conexión a SQL Server. Configurar en la API:
+Publicar con scripts/Publish-Backend.ps1 y copiar el contenido de publish a la aplicación IIS /API_SoporteSidecil. El servidor necesita Hosting Bundle .NET 10 y conexión a SQL Server. Configurar en la API:
 
 ```text
 ASPNETCORE_ENVIRONMENT=Production
-AllowedHosts=sintesiserp.com.co
-Hosting__PathBase=/soporte
+AllowedHosts=sintesiserp.com.co;www.sintesiserp.com.co
+Hosting__PathBase=/API_SoporteSidecil
 Frontend__PublicBaseUrl=https://soporte.sintesiserp.com.co
 ConnectionStrings__Tickets=CONEXION_PRIVADA_SQL_CON_DATABASE_SidecilCloudSoporte
 DataProtection__Path=C:\ProgramData\SidecilTickets\keys
@@ -33,8 +33,8 @@ El Worker conserva su propia conexión SQL y configuración privada del buzón. 
 Microsoft y Google deben registrar los callbacks del BACKEND:
 
 ```text
-https://sintesiserp.com.co/soporte/signin-microsoft
-https://sintesiserp.com.co/soporte/signin-google
+https://www.sintesiserp.com.co/API_SoporteSidecil/signin-microsoft
+https://www.sintesiserp.com.co/API_SoporteSidecil/signin-google
 ```
 
 Después de autenticar, IIS devuelve al usuario al frontend configurado. Los secretos OAuth se guardan exclusivamente en IIS. La API sin Frontend__PublicBaseUrl mantiene el modo local anterior, por compatibilidad.
@@ -47,7 +47,7 @@ El widget embebido conserva su ruta /chat-widget y sus recursos en IIS para mant
 2. Crear un recurso Application desde GitHub: repositorio JeanGoP/sintesissoporte, rama main. Si es privado, autorizar acceso mediante la integración GitHub o clave de despliegue.
 3. Seleccionar Dockerfile como método de compilación.
 4. Directorio base/contexto: raíz del repositorio (`/`). Dockerfile: `/deploy/coolify/Dockerfile`.
-5. Añadir `VITE_API_URL=https://sintesiserp.com.co/soporte` como variable disponible DURANTE LA COMPILACIÓN (Build Variable/build argument). Incluir `/soporte`, pero NO `/api/v1`, consultas ni secretos. El Dockerfile declara ARG VITE_API_URL y exige HTTPS.
+5. Añadir `VITE_API_URL=https://www.sintesiserp.com.co/API_SoporteSidecil` como variable disponible DURANTE LA COMPILACIÓN (Build Variable/build argument). Incluir `/API_SoporteSidecil`, pero NO `/api/v1`, consultas ni secretos. El Dockerfile declara ARG VITE_API_URL y exige HTTPS.
 6. Puerto interno: `80`. Dominio: `https://soporte.sintesiserp.com.co`. Configurar comprobación HTTP `/health` en puerto 80; solo comprueba el frontend, no SQL ni el backend.
 7. Desplegar y revisar logs. Las rutas React como /account funcionan al recargar gracias al fallback de Nginx.
 8. Al cambiar VITE_API_URL, RECOMPILAR/redeploy: reiniciar el contenedor no cambia los archivos ya compilados.
@@ -69,7 +69,7 @@ No añadir conexión SQL, claves de correo ni secretos Microsoft/Google en Cooli
 
 La prueba split-hosting.spec.ts utiliza frontend http://localhost:5180 y API http://localhost:5099/soporte, con Hosting__PathBase=/soporte, Frontend__PublicBaseUrl=http://localhost:5180 y VITE_API_URL=http://localhost:5099/soporte. Usar Development, SQL demo y definir SIDECIL_SPLIT_TEST=1 al ejecutar esa prueba. Comprueba login real por CORS, cookies, CSRF, lectura de ETag y logout. HTTP local solo sirve para desarrollo; no demuestra TLS del servidor final.
 
-Docker local: `docker build -f deploy/coolify/Dockerfile --build-arg VITE_API_URL=https://sintesiserp.com.co/soporte -t sidecil-frontend .`. El motor Docker debe estar activo. La compilación de React y las pruebas locales no sustituyen la prueba de la imagen en el servidor Coolify.
+Docker local: `docker build -f deploy/coolify/Dockerfile --build-arg VITE_API_URL=https://www.sintesiserp.com.co/API_SoporteSidecil -t sidecil-frontend .`. El motor Docker debe estar activo. La compilación de React y las pruebas locales no sustituyen la prueba de la imagen en el servidor Coolify.
 
 ## Actualizaciones
 

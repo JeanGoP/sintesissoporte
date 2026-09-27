@@ -12,7 +12,7 @@ try {
     if ($LASTEXITCODE -ne 0 -or [version]$version -lt [version]'20.19.0') { throw 'Se requiere Node 20.19 o posterior.' }
     $env:PATH = (Split-Path (Get-Command $NodeExecutable).Source -Parent) + ';' + $env:PATH
     $npm = Join-Path (Split-Path (Get-Command npm.cmd).Source -Parent) 'node_modules/npm/bin/npm-cli.js'
-    $env:SIDECIL_API_PATH = '/soporte'
+    $env:SIDECIL_API_PATH = '/API_SoporteSidecil'
     $env:VITE_API_URL = ''
     # Recursos del chat embebido incluidos en el backend.
     & $NodeExecutable $npm --prefix src/sidecil-tickets-web run build

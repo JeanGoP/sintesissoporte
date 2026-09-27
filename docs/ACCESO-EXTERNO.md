@@ -16,7 +16,7 @@ Se conservan el mismo usuario, rol, organización y tickets. No se crean cuentas
 
 En Microsoft Entra, registra una aplicación **web** compatible con cuentas de cualquier directorio organizativo y cuentas Microsoft personales. Registra la URI exacta:
 
-`https://sintesiserp.com.co/soporte/signin-microsoft`
+`https://www.sintesiserp.com.co/API_SoporteSidecil/signin-microsoft`
 
 Configura el identificador de aplicación y su secreto en el servidor:
 
@@ -27,7 +27,7 @@ Configura el identificador de aplicación y su secreto en el servidor:
 
 Configura la pantalla de consentimiento y crea un cliente OAuth de tipo **aplicación web**. Durante pruebas añade las cuentas de prueba autorizadas. Registra la URI exacta:
 
-`https://sintesiserp.com.co/soporte/signin-google`
+`https://www.sintesiserp.com.co/API_SoporteSidecil/signin-google`
 
 Configura:
 
