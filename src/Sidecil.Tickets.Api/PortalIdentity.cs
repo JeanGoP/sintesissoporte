@@ -105,7 +105,37 @@ public static class PortalIdentity
             http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/account?external=linked"));
         } else {
             var user = await users.FindByLoginAsync(provider, key);
-            if (user is null) { await tx.CommitAsync(); http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/?external=unlinked")); return; }
+            if (user is null) {
+                // El correo es contacto, no identidad ni autorizacion. Nunca enlazar por coincidencia.
+                var email = context.Principal?.FindFirstValue("email")?.Trim();
+                var verified = string.Equals(context.Principal?.FindFirstValue("email_verified"), "true", StringComparison.OrdinalIgnoreCase);
+                if (string.IsNullOrWhiteSpace(email) || email.Length > 200 ||
+                    !System.Net.Mail.MailAddress.TryCreate(email, out var address) || address.Address != email ||
+                    (provider == "Google" && !verified)) {
+                    await tx.CommitAsync();
+                    http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/?external=email-required")); return;
+                }
+                if (await users.FindByEmailAsync(email) is not null || await users.FindByNameAsync(email) is not null) {
+                    await tx.CommitAsync();
+                    http.Response.Redirect(FrontendHosting.ReturnUrl(http, "/?external=unlinked")); return;
+                }
+                var name = context.Principal?.FindFirstValue("name")?.Trim();
+                if (string.IsNullOrWhiteSpace(name)) name = email;
+                user = new ApplicationUser {
+                    UserName = email, Email = email, DisplayName = name[..Math.Min(name.Length, 120)],
+                    Role = "Requester", OrganizationId = TicketsDbContext.GuestOrganizationId, TeamId = null,
+                    EmailConfirmed = provider == "Google" && verified
+                };
+                try {
+                    if (!(await users.CreateAsync(user)).Succeeded ||
+                        !(await users.AddLoginAsync(user, new UserLoginInfo(provider, key, provider))).Succeeded) {
+                        Failed(); return;
+                    }
+                } catch (DbUpdateException) {
+                    // Una alta concurrente puede ganar la clave unica; no dejar usuarios huerfanos.
+                    Failed(); return;
+                }
+            }
             // Identity checks lockout and any configured confirmation/2FA requirements.
             var result = await signIn.ExternalLoginSignInAsync(provider, key, isPersistent: false, bypassTwoFactor: false);
             await tx.CommitAsync();

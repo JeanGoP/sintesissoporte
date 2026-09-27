@@ -46,6 +46,12 @@ export function ExternalLoginButtons() {
           administrador.
         </Alert>
       )}
+      {result === "email-required" && (
+        <Alert severity="info">
+          El proveedor no compartió un correo válido para registrarte. Prueba
+          otra cuenta o contacta al equipo de soporte.
+        </Alert>
+      )}
       {result === "failed" && (
         <Alert severity="error">
           No se completó el acceso externo. Inténtalo nuevamente o ingresa con
@@ -94,7 +100,11 @@ export function ExternalLoginButtons() {
     </div>
   );
 }
-export function ExternalConnections() {
+export function ExternalConnections({
+  hasPassword = true,
+}: {
+  hasPassword?: boolean;
+}) {
   const connections = useQuery({
     queryKey: ["external-connections"],
     queryFn: async () =>
@@ -133,10 +143,17 @@ export function ExternalConnections() {
   return (
     <section className="account-card external-connections">
       <h2>Acceso con Microsoft y Google</h2>
-      <p>
-        Vincula una cuenta para ingresar desde la pantalla principal. Conservas
-        tu rol, organización y acceso a los mismos tickets.
-      </p>
+      {hasPassword ? (
+        <p>
+          Vincula una cuenta para ingresar desde la pantalla principal.
+          Conservas tu rol, organización y acceso a los mismos tickets.
+        </p>
+      ) : (
+        <p>
+          Tu cuenta se creó con el proveedor que aparece vinculado. Continúa
+          usando ese botón para ingresar.
+        </p>
+      )}
       {result === "linked" && (
         <Alert severity="success">
           Cuenta vinculada. Ya puedes usarla para ingresar al sistema.
@@ -148,16 +165,18 @@ export function ExternalConnections() {
         </Alert>
       )}
       {notice && <Alert severity="success">{notice}</Alert>}
-      <TextField
-        fullWidth
-        type="password"
-        label="Contraseña para vincular o desvincular"
-        autoComplete="current-password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        disabled={busy}
-        sx={{ mt: 2 }}
-      />
+      {hasPassword && (
+        <TextField
+          fullWidth
+          type="password"
+          label="Contraseña para vincular o desvincular"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={busy}
+          sx={{ mt: 2 }}
+        />
+      )}
       {connections.data?.providers.map((provider) => {
         const linked = connections.data.linked.includes(provider.name);
         return (
@@ -172,12 +191,14 @@ export function ExternalConnections() {
                     : "Pendiente de configuración en el servidor"}
               </small>
             </span>
-            <Button
-              disabled={busy || !password || (!linked && !provider.enabled)}
-              onClick={() => void change(provider.name, linked)}
-            >
-              {linked ? "Desvincular" : "Vincular"}
-            </Button>
+            {hasPassword && (
+              <Button
+                disabled={busy || !password || (!linked && !provider.enabled)}
+                onClick={() => void change(provider.name, linked)}
+              >
+                {linked ? "Desvincular" : "Vincular"}
+              </Button>
+            )}
           </div>
         );
       })}

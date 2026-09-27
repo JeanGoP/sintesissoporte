@@ -205,7 +205,7 @@ function Login({ onSuccess }: { onSuccess: () => Promise<void> }) {
           <span>
             Acceso para empleados y clientes de Sidecil.
             <br />
-            Si necesitas una cuenta, contacta al administrador.
+            Si eres cliente, puedes crear tu cuenta al continuar con Google o Microsoft.
           </span>
         </div>
       </section>

@@ -282,57 +282,66 @@ export function AccountPage({ user }: { user: User }) {
           </p>
         </div>
       </div>
-      <ExternalConnections />
+      <ExternalConnections hasPassword={user.hasPassword !== false} />
       <section className="account-card">
         <h2>Seguridad de acceso</h2>
         <p>{user.email}</p>
-        <form
-          className="form-fields"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            setError(undefined);
-            setSuccess(false);
-            try {
-              await api("/auth/password", {
-                method: "POST",
-                body: JSON.stringify({ currentPassword, newPassword }),
-              });
-              await refreshCsrf();
-              setCurrent("");
-              setNew("");
-              setSuccess(true);
-            } catch (e) {
-              setError(e);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <TextField
-            required
-            label="Contraseña actual"
-            type="password"
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(e) => setCurrent(e.target.value)}
-          />
-          <TextField
-            required
-            label="Nueva contraseña"
-            type="password"
-            autoComplete="new-password"
-            inputProps={{ minLength: 12 }}
-            value={newPassword}
-            onChange={(e) => setNew(e.target.value)}
-            helperText="Mínimo 12 caracteres, mayúsculas, minúsculas, números y símbolos."
-          />
-          <ErrorBox error={error} />
-          {success && <Alert severity="success">Contraseña actualizada.</Alert>}
-          <Button type="submit" variant="contained" disabled={busy}>
-            Actualizar contraseña
-          </Button>
-        </form>
+        {user.hasPassword === false ? (
+          <Alert severity="info">
+            Tu acceso se administra con Google o Microsoft. Usa la misma cuenta
+            con la que te registraste; no necesitas una contraseña local.
+          </Alert>
+        ) : (
+          <form
+            className="form-fields"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy(true);
+              setError(undefined);
+              setSuccess(false);
+              try {
+                await api("/auth/password", {
+                  method: "POST",
+                  body: JSON.stringify({ currentPassword, newPassword }),
+                });
+                await refreshCsrf();
+                setCurrent("");
+                setNew("");
+                setSuccess(true);
+              } catch (e) {
+                setError(e);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <TextField
+              required
+              label="Contraseña actual"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrent(e.target.value)}
+            />
+            <TextField
+              required
+              label="Nueva contraseña"
+              type="password"
+              autoComplete="new-password"
+              inputProps={{ minLength: 12 }}
+              value={newPassword}
+              onChange={(e) => setNew(e.target.value)}
+              helperText="Mínimo 12 caracteres, mayúsculas, minúsculas, números y símbolos."
+            />
+            <ErrorBox error={error} />
+            {success && (
+              <Alert severity="success">Contraseña actualizada.</Alert>
+            )}
+            <Button type="submit" variant="contained" disabled={busy}>
+              Actualizar contraseña
+            </Button>
+          </form>
+        )}
       </section>
     </>
   );

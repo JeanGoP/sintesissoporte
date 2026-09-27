@@ -95,6 +95,55 @@ public sealed class PortalOidcTests
         var connections = await client.GetFromJsonAsync<JsonElement>("/api/v1/auth/connections");
         Assert.Equal(0, connections.GetProperty("linked").GetArrayLength());
     }
+    [Theory]
+    [InlineData("Google")]
+    [InlineData("Microsoft")]
+    public async Task FirstLoginCreatesOnlyRequesterAndReusesIdentity(string provider) {
+        using var factory = new PortalOidcFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        var callback = await Challenge(client, factory, provider, false, "");
+        Assert.Equal("/", (await client.GetAsync(callback)).Headers.Location!.OriginalString);
+        var me = await client.GetFromJsonAsync<JsonElement>("/api/v1/auth/me");
+        var id = me.GetProperty("id").GetString();
+        Assert.Equal("Requester", me.GetProperty("role").GetString());
+        Assert.False(me.GetProperty("hasPassword").GetBoolean());
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/admin/chat/sites")).StatusCode);
+        using (var scope = factory.Services.CreateScope()) {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = (await users.FindByIdAsync(id!))!;
+            Assert.Equal(TicketsDbContext.GuestOrganizationId, user.OrganizationId);
+            Assert.Null(user.TeamId);
+            Assert.Null(user.PasswordHash);
+            Assert.Equal(provider == "Google", user.EmailConfirmed);
+            Assert.Single(await users.GetLoginsAsync(user));
+        }
+        await Csrf(client);
+        await client.PostAsJsonAsync("/api/v1/auth/logout", new {});
+        callback = await Challenge(client, factory, provider, false, "");
+        Assert.Equal("/", (await client.GetAsync(callback)).Headers.Location!.OriginalString);
+        me = await client.GetFromJsonAsync<JsonElement>("/api/v1/auth/me");
+        Assert.Equal(id, me.GetProperty("id").GetString());
+        using var check = factory.Services.CreateScope();
+        var db = check.ServiceProvider.GetRequiredService<TicketsDbContext>();
+        Assert.Equal(1, await db.Users.CountAsync(x => x.Email == factory.Backchannel.Email));
+    }
+
+    [Theory]
+    [InlineData("Google", null, true)]
+    [InlineData("Microsoft", null, true)]
+    [InlineData("Google", "invalid-email", true)]
+    [InlineData("Google", "unverified@example.invalid", false)]
+    public async Task RegistrationRequiresUsableEmail(string provider, string? email, bool verified) {
+        using var factory = new PortalOidcFactory();
+        factory.Backchannel.Email = email;
+        factory.Backchannel.EmailVerified = verified;
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
+        var callback = await Challenge(client, factory, provider, false, "");
+        Assert.Equal("/?external=email-required", (await client.GetAsync(callback)).Headers.Location!.OriginalString);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/auth/me")).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<TicketsDbContext>().Users.AnyAsync(x => x.Email == email));
+    }
     [Fact]
     public async Task OAuthCallbackPreservesIisApplicationPath()
     {
@@ -114,18 +163,21 @@ public sealed class PortalOidcTests
         factory.Backchannel.Challenge = query["code_challenge"].ToString();
         var callback = QueryHelpers.AddQueryString("/soporte/signin-google", new Dictionary<string,string?> { ["state"] = query["state"].ToString(), ["code"] = "test-code" });
         var result = await client.GetAsync(callback);
-        Assert.Equal("https://soporte.sintesiserp.com.co/?external=unlinked", result.Headers.Location!.AbsoluteUri);
+        Assert.Equal("https://soporte.sintesiserp.com.co/", result.Headers.Location!.AbsoluteUri);
     }
-    [Fact]
-    public async Task UnlinkedEmailCannotTakeOverAnExistingAccount() {
+    [Theory]
+    [InlineData("Google", "Admin")]
+    [InlineData("Microsoft", "Agent")]
+    [InlineData("Google", "Requester")]
+    public async Task UnlinkedEmailCannotTakeOverAnExistingAccount(string provider, string role) {
         using var factory = new PortalOidcFactory();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
         using (var scope = factory.Services.CreateScope()) {
             var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-            var user = new ApplicationUser { UserName = "oidc-test@example.com", Email = "oidc-test@example.com", DisplayName = "No vinculado", Role = "Admin", OrganizationId = TicketsDbContext.GuestOrganizationId };
+            var user = new ApplicationUser { UserName = factory.Backchannel.Email, Email = factory.Backchannel.Email, DisplayName = "No vinculado", Role = role, OrganizationId = TicketsDbContext.GuestOrganizationId };
             Assert.True((await users.CreateAsync(user, Password)).Succeeded); factory.CreatedUsers.Add(user.Id);
         }
-        var callback = await Challenge(client, factory, "Google", false, "");
+        var callback = await Challenge(client, factory, provider, false, "");
         var result = await client.GetAsync(callback);
         Assert.Equal("/?external=unlinked", result.Headers.Location!.OriginalString);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/auth/me")).StatusCode);
@@ -169,10 +221,10 @@ public sealed class PortalOidcFactory : WebApplicationFactory<Program>
     {
         if (cleaned) return;
         cleaned = true;
-        if (disposing && CreatedUsers.Count > 0) {
+        if (disposing) {
             using var scope = Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
-            db.Users.Where(x => CreatedUsers.Contains(x.Id)).ExecuteDelete();
+            db.Users.Where(x => CreatedUsers.Contains(x.Id) || (Backchannel.Email != null && x.Email == Backchannel.Email)).ExecuteDelete();
         }
         base.Dispose(disposing);
         foreach (var value in previous) Environment.SetEnvironmentVariable(value.Key, value.Value);
@@ -185,6 +237,8 @@ public sealed class FakeIdentityBackchannel : HttpMessageHandler
     public const string Tenant = "9188040d-6c67-4c5b-b112-36a304b66dad";
     public const string MicrosoftIssuer = "https://login.microsoftonline.com/" + Tenant + "/v2.0";
     public RsaSecurityKey Key { get; } = new(RSA.Create(2048)) { KeyId = "test-signing-key" };
+    public string? Email { get; set; } = Guid.NewGuid() + "@test.invalid";
+    public bool EmailVerified { get; set; } = true;
     public string Provider { get; set; } = "Google";
     public string Nonce { get; set; } = "";
     public string Challenge { get; set; } = "";
@@ -196,7 +250,10 @@ public sealed class FakeIdentityBackchannel : HttpMessageHandler
         var form = QueryHelpers.ParseQuery(await request.Content!.ReadAsStringAsync(cancellationToken));
         var actualChallenge = Base64UrlEncoder.Encode(SHA256.HashData(Encoding.ASCII.GetBytes(form["code_verifier"].ToString())));
         Assert.Equal(Challenge, actualChallenge);
-        var claims = new List<Claim> { new("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64), new("sub", "unique-provider-subject"), new("name", "Persona OIDC"), new("email", "oidc-test@example.com"), new("nonce", Failure == "nonce" ? "wrong-nonce" : Nonce) };
+        var claims = new List<Claim> { new("iat", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64), new("sub", "unique-provider-subject"), new("name", "Persona OIDC"), new("nonce", Failure == "nonce" ? "wrong-nonce" : Nonce) };
+        if (Email is not null) claims.Add(new Claim("email", Email));
+        claims.Add(new Claim("email_verified", EmailVerified ? "true" : "false", ClaimValueTypes.Boolean));
+        claims.Add(new Claim("roles", "Admin"));
         if (Provider == "Microsoft") claims.Add(new Claim("tid", Tenant));
         var issuer = Failure == "issuer" ? "https://attacker.example" : Provider == "Google" ? "https://accounts.google.com" : MicrosoftIssuer;
         var key = Failure == "signature" ? new RsaSecurityKey(RSA.Create(2048)) { KeyId = Key.KeyId } : Key;

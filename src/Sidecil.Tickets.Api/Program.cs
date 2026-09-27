@@ -140,7 +140,7 @@ api.MapGet("/auth/me", async (HttpContext c, UserManager<ApplicationUser> users,
     var user = await users.GetUserAsync(c.User);
     if (user is null) return Results.Unauthorized();
     var organization = await db.Organizations.Where(x => x.Id == user.OrganizationId).Select(x => x.Name).FirstAsync();
-    return Results.Ok(new { user.Id, user.DisplayName, user.Email, user.Role, user.OrganizationId, organization, user.TeamId });
+    return Results.Ok(new { user.Id, user.DisplayName, user.Email, user.Role, user.OrganizationId, organization, user.TeamId, hasPassword = await users.HasPasswordAsync(user) });
 });
 api.MapPost("/auth/logout", async (SignInManager<ApplicationUser> signIn) => { await signIn.SignOutAsync(); return Results.NoContent(); });
 api.MapPost("/auth/password", async (ChangePasswordRequest request, HttpContext c, UserManager<ApplicationUser> users, SignInManager<ApplicationUser> signIn) => {

@@ -4,13 +4,17 @@ Los botones están en la **pantalla principal de inicio de sesión**, junto al a
 
 ## Uso por cada usuario
 
-1. Un administrador crea el usuario de Sidecil y asigna su organización y rol, como hasta ahora.
+Los clientes nuevos pueden pulsar **Continuar con Google** o **Continuar con Microsoft**. Si la identidad externa no está vinculada y el correo no pertenece a una cuenta existente, se crea un usuario **Requester**, sin contraseña local ni equipo, en la organización de solicitudes externas. Solo puede consultar sus propios tickets. Las solicitudes anteriores sin cuenta no se asocian por correo. Google debe entregar un correo verificado; Microsoft debe entregar un correo válido, que se conserva como contacto sin marcarlo confirmado. Si falta, se solicita usar otra cuenta o contactar a soporte.
+
+Para cuentas existentes, agentes y administradores:
+
+1. El usuario conserva la cuenta, organización y rol asignados por el administrador.
 2. El usuario ingresa con su correo y contraseña y abre **Mi cuenta**.
 3. En **Acceso con Microsoft y Google**, confirma su contraseña actual y pulsa **Vincular** junto al proveedor.
 4. Completa el acceso en Microsoft o Google. Regresa al portal con la cuenta vinculada.
 5. Desde entonces puede ingresar con **Continuar con Microsoft** o **Continuar con Google** en la pantalla principal.
 
-Se conservan el mismo usuario, rol, organización y tickets. No se crean cuentas automáticamente ni se vinculan por coincidencia de correo. Una cuenta externa que todavía no está vinculada recibe una indicación para ingresar con contraseña y vincularla. La desvinculación se realiza en **Mi cuenta**, confirmando la contraseña.
+Se conservan el mismo usuario, rol, organización y tickets. No se vinculan cuentas existentes por coincidencia de correo. Una cuenta externa que todavía no está vinculada recibe una indicación para ingresar con contraseña y vincularla. La desvinculación se realiza en **Mi cuenta**, confirmando la contraseña. Las cuentas creadas con un proveedor muestran su acceso vinculado y no ofrecen cambiar una contraseña inexistente ni desvincular su único acceso.
 
 ## Activar Microsoft
 
@@ -46,11 +50,11 @@ Se usa el middleware oficial ASP.NET Core OpenID Connect, autorización por cód
 
 Las cuentas se guardan en ASP.NET Core Identity (`AspNetUserLogins`). Identity aplica bloqueo y requisitos de acceso al iniciar sesión externamente; no se omite una eventual exigencia de segundo factor. No se guardan tokens de acceso o renovación de los proveedores. La aplicación conserva la sesión con su cookie HttpOnly habitual.
 
-Las operaciones iniciales y la vinculación/desvinculación usan CSRF y límites de solicitudes. No hay asociaciones por correo ni creación automática de usuarios, equipos o roles.
+Las operaciones iniciales y la vinculación/desvinculación usan CSRF y límites de solicitudes. No hay asociaciones por correo ni creación automática de equipos o roles; el registro externo siempre asigna Requester, ignorando los roles del proveedor.
 
 ## Despliegue y pruebas
 
-La migración `20260926043108_PortalExternalLogin` añade `identity.ExternalLoginAttempts`. Las tablas experimentales anteriores del chat se conservan sin usarse para evitar borrar datos durante la corrección. Sus endpoints y controles de acceso externo fueron retirados.
+El registro automático no requiere una nueva migración. La migración `20260926043108_PortalExternalLogin` añade `identity.ExternalLoginAttempts`. Las tablas experimentales anteriores del chat se conservan sin usarse para evitar borrar datos durante la corrección. Sus endpoints y controles de acceso externo fueron retirados.
 
 `PortalOidcTests` valida el middleware completo con tokens firmados de prueba: vinculación, inicio de sesión con ambos proveedores, mantenimiento de usuario y rol, desvinculación, rechazo de tokens alterados, repetición y cuentas no vinculadas. Requiere SQL Server de desarrollo con las migraciones aplicadas y limpia los usuarios de prueba que crea. Para pruebas sin SQL usa `--filter FullyQualifiedName!~PortalOidcTests`.
 

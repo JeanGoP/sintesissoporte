@@ -1,5 +1,6 @@
 import { backendUrl } from "./backend";
 export type User = {
+  hasPassword?: boolean;
   id: string;
   displayName: string;
   email: string;
