@@ -27,3 +27,4 @@ test-results/
 *.ldf
 *.bak
 .vs/
+**/appsettings.Production.json

@@ -1,0 +1,13 @@
+{
+  "ConnectionStrings": { "Tickets": "Server=TU-SERVIDOR-SQL;Database=SidecilTickets;Integrated Security=True;Encrypt=True;TrustServerCertificate=False" },
+  "Mail": {
+    "Mode": "Disabled",
+    "PublicBaseUrl": "https://soporte.TU-DOMINIO.com",
+    "FromAddress": "soporte@TU-DOMINIO.com",
+    "FromName": "Sidecil · Atención al cliente",
+    "AccountKey": "sidecil-support",
+    "SmtpHost": "", "SmtpPort": 587, "SmtpUser": "", "SmtpPassword": "",
+    "ImapHost": "", "ImapPort": 993, "ImapUser": "", "ImapPassword": "",
+    "ImapFolder": "INBOX", "TrustedAuthenticationService": ""
+  }
+}

@@ -82,3 +82,7 @@ El panel `/admin/chat` permite registrar integraciones y obtener el widget para 
 ## Acceso al portal con Microsoft y Google
 
 Los botones de acceso externo están en el inicio de sesión principal. Cada usuario vincula su cuenta desde **Mi cuenta**, conservando sus permisos. Para activarlos consulta [la configuración del acceso externo](docs/ACCESO-EXTERNO.md). Las pruebas OIDC usan SQL Server de desarrollo; para pruebas sin base de datos agrega `--filter FullyQualifiedName!~PortalOidcTests`.
+
+## Entrega para subir al servidor
+
+Ejecutar `./scripts/Publish-Server.ps1` para generar una carpeta nueva y ZIP en `artifacts/servidor/`, con IIS, Worker, SQL, plantillas sin secretos y guía de instalación. Consultar [instalación del servidor](docs/INSTALAR-SERVIDOR.md). Para la alternativa con contenedores, ver [preparación de Coolify](docs/COOLIFY.md); la adaptación y validación en Coolify siguen pendientes.

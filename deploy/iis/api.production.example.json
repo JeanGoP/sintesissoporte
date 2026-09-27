@@ -1,0 +1,10 @@
+{
+  "AllowedHosts": "soporte.TU-DOMINIO.com",
+  "ConnectionStrings": { "Tickets": "Server=TU-SERVIDOR-SQL;Database=SidecilTickets;Integrated Security=True;Encrypt=True;TrustServerCertificate=False" },
+  "DataProtection": { "Path": "C:\\ProgramData\\SidecilTickets\\keys" },
+  "Mail": { "Mode": "Disabled", "PublicBaseUrl": "https://soporte.TU-DOMINIO.com" },
+  "ExternalLogin": {
+    "Microsoft": { "ClientId": "", "ClientSecret": "" },
+    "Google": { "ClientId": "", "ClientSecret": "" }
+  }
+}
