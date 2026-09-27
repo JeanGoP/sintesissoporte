@@ -81,11 +81,16 @@ public sealed class InboundProcessor(TicketsDbContext db, EmailComposer composer
         row.TicketId = ticket.Id;
         if (ticket.Status is TicketStatus.Closed or TicketStatus.Cancelled)
             return await Finish("Review", "Ticket cerrado o cancelado: requiere revisión del agente.");
-        if (body.Length == 0 || body.Length > 12000)
+        List<TicketAttachment> attachments;
+        try { attachments = InboundAttachments.Read(message, ct); }
+        catch (InvalidDataException ex) { return await Finish("Review", ex.Message); }
+        if ((body.Length == 0 && attachments.Count == 0) || body.Length > 12000)
             return await Finish("Review", "El cuerpo está vacío o supera el límite de 12.000 caracteres.");
-        var hasAttachments = message.Attachments.Any();
-        // Never silently drop attachments from a client's reply.
-        if (hasAttachments) return await Finish("Review", "El correo contiene adjuntos; deben revisarse en el buzón de soporte. No se han importado.");
+        if (body.Length == 0) body = "El cliente envió archivos adjuntos por correo.";
+        foreach (var attachment in attachments) {
+            attachment.TicketId = ticket.Id;
+            db.TicketAttachments.Add(attachment);
+        }
         ticket.Messages.Add(new TicketMessage { AuthorId = ticket.RequesterId, AuthorName = name,
             Body = body, Visibility = MessageVisibility.Public, Source = "Email" });
         ticket.UpdatedAt = DateTime.UtcNow;

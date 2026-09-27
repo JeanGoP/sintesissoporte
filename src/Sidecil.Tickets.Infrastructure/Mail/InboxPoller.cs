@@ -19,8 +19,8 @@ public sealed class InboxPoller(TicketsDbContext db, InboundProcessor processor,
             var archive = Path.Combine(o.InboxDirectory, "processed");
             Directory.CreateDirectory(archive);
             foreach (var file in Directory.EnumerateFiles(o.InboxDirectory, "*.eml").Take(50)) {
-                if (new FileInfo(file).Length > 5_000_000) {
-                    await QuarantineAsync("file:" + Path.GetFileName(file), "Correo de prueba mayor de 5 MB.", ct);
+                if (new FileInfo(file).Length > InboundAttachments.MaxMessageBytes) {
+                    await QuarantineAsync("file:" + Path.GetFileName(file), "Correo de prueba mayor de 24 MB.", ct);
                 } else {
                     try {
                         using var message = await MimeMessage.LoadAsync(file, ct);
@@ -58,7 +58,7 @@ public sealed class InboxPoller(TicketsDbContext db, InboundProcessor processor,
             var summaries = await folder.FetchAsync(ids, MessageSummaryItems.UniqueId | MessageSummaryItems.Size, ct);
             foreach (var item in summaries.OrderBy(x => x.UniqueId.Id)) {
                 var source = $"imap:{o.ImapFolder}:{folder.UidValidity}:{item.UniqueId.Id}";
-                if (item.Size > 5_000_000) await QuarantineAsync(source, "Correo mayor de 5 MB; revisar en el buzón.", ct);
+                if (item.Size > InboundAttachments.MaxMessageBytes) await QuarantineAsync(source, "Correo mayor de 24 MB; revisar en el buzón.", ct);
                 else {
                     try {
                         using var message = await folder.GetMessageAsync(item.UniqueId, ct);
