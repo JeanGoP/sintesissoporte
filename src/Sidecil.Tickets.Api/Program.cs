@@ -82,6 +82,11 @@ if (args.Contains("--seed-demo") || args.Contains("--bootstrap")) {
     await Bootstrap.RunAsync(app.Services, app.Environment.IsDevelopment(), args.Contains("--seed-demo"));
     return;
 }
+if (args.Contains("--update-database")) {
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<TicketsDbContext>().Database.MigrateAsync();
+    Console.WriteLine("Base de datos actualizada correctamente."); return;
+}
 app.UseExceptionHandler();
 if (!app.Environment.IsDevelopment()) {
     app.UseHsts();
@@ -164,6 +169,7 @@ api.MapPost("/admin/users", (CreateUserRequest r, HttpContext c, TicketService s
 api.MapPost("/admin/organizations", (CreateOrganizationRequest r, HttpContext c, TicketService s) => s.CreateOrganizationAsync(c, r));
 api.MapPost("/admin/users/{id}/invitation", (string id, HttpContext c, UserInvitations invitations) => invitations.ResendAsync(id, c)).RequireRateLimiting("login");
 app.MapPost("/api/v1/auth/invitation", (AcceptInvitationRequest r, UserInvitations invitations) => invitations.AcceptAsync(r)).AddEndpointFilter<ValidationFilter>().RequireRateLimiting("login");
+api.MapPost("/auth/chat-session", ChatIdentity.PortalAsync).RequireRateLimiting("login");
 PortalIdentity.Map(app);
 ChatEndpoints.Map(app);
 api.MapGet("/tickets/{id:guid}/attachments/{fileId:guid}", (Guid id, Guid fileId, HttpContext c, TicketService s) => s.AttachmentAsync(c, id, fileId));

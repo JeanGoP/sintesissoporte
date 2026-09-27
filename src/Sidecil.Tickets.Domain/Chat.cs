@@ -24,6 +24,10 @@ public sealed class ChatConversation
     public string? IdentityIssuer { get; set; }
     public string? IdentitySubject { get; set; }
     public DateTime? IdentityVerifiedAt { get; set; }
+    public string? VerificationHash { get; set; }
+    public DateTime? VerificationExpiresAt { get; set; }
+    public DateTime? VerificationSentAt { get; set; }
+    public int VerificationAttempts { get; set; }
     public Guid? GuestSubmissionId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; set; } = DateTime.UtcNow.AddHours(24);

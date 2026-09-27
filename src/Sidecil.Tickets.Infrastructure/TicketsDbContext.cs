@@ -53,6 +53,7 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
             e.HasIndex(x => x.ExpiresAt);
             e.HasOne<ChatConversation>().WithMany().HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Cascade);
         });
+        model.Entity<ChatConversation>().Property(x => x.VerificationHash).HasMaxLength(64);
         model.Entity<ChatConversation>().Property(x => x.IdentityProvider).HasMaxLength(20);
         model.Entity<ChatConversation>().Property(x => x.IdentityIssuer).HasMaxLength(300);
         model.Entity<ChatConversation>().Property(x => x.IdentitySubject).HasMaxLength(255);

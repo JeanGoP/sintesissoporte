@@ -1,3 +1,4 @@
+import { api, refreshCsrf, statuses, type Status } from "./api";
 import { backendUrl } from "./backend";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Button, TextField, MenuItem } from "@mui/material";
@@ -21,7 +22,15 @@ type Draft = {
   category: string;
 };
 type Attachment = { id: string; fileName: string; length: number };
+type PendingTicket = {
+  id: string;
+  number: string;
+  subject: string;
+  status: Status;
+};
 type Snapshot = Draft & {
+  verified: boolean;
+  codeSent: boolean;
   submitted: boolean;
   number: string | null;
   attachments: Attachment[];
@@ -99,6 +108,12 @@ export function ChatWidget() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [code, setCode] = useState("");
+  const [tickets, setTickets] = useState<PendingTicket[]>([]);
+  const [choice, setChoice] = useState(false);
+  const [selected, setSelected] = useState<PendingTicket | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
   async function request<T>(
     path: string,
@@ -116,6 +131,15 @@ export function ChatWidget() {
       },
     });
     if (!response.ok) {
+      if (response.status === 401) {
+        setVerified(false);
+        setSession(undefined);
+        try {
+          sessionStorage.removeItem(storageKey);
+        } catch {
+          /* Storage may be blocked. */
+        }
+      }
       const p = await response.json().catch(() => ({}));
       throw new Error(
         p.detail ||
@@ -129,6 +153,8 @@ export function ChatWidget() {
     return response.status === 204 ? (undefined as T) : response.json();
   }
   function apply(data: Snapshot) {
+    setVerified(data.verified);
+    setCodeSent(data.codeSent);
     setDraft(data);
     setStep(nextStep(data));
     setFiles(data.attachments);
@@ -159,6 +185,14 @@ export function ChatWidget() {
           if (active) {
             setSession(saved);
             apply(data);
+            if (data.verified && !data.submitted)
+              setTickets(
+                await request<PendingTicket[]>(
+                  "/sessions/" + saved.id + "/tickets",
+                  {},
+                  saved,
+                ),
+              );
           }
         }
       } catch (e) {
@@ -211,10 +245,15 @@ export function ChatWidget() {
   }
   async function start() {
     await action(async () => {
-      const value = await request<Session>("/sessions", {
-        method: "POST",
-        body: JSON.stringify({ siteId: site }),
-      });
+      const continuing = verified && session;
+      const value = await request<Session>(
+        continuing ? "/sessions/" + session.id + "/next" : "/sessions",
+        {
+          method: "POST",
+          body: JSON.stringify({ siteId: site }),
+        },
+        continuing ? session : undefined,
+      );
       try {
         sessionStorage.setItem(storageKey, JSON.stringify(value));
       } catch {
@@ -226,6 +265,23 @@ export function ChatWidget() {
       setFiles([]);
       setSubmitted(false);
       setNumber(null);
+      setChoice(false);
+      setSelected(null);
+      setCode("");
+      if (continuing) {
+        apply(await request<Snapshot>("/sessions/" + value.id, {}, value));
+        setTickets(
+          await request<PendingTicket[]>(
+            "/sessions/" + value.id + "/tickets",
+            {},
+            value,
+          ),
+        );
+      } else {
+        setVerified(false);
+        setCodeSent(false);
+        setTickets([]);
+      }
     });
   }
   async function save() {
@@ -236,6 +292,9 @@ export function ChatWidget() {
     );
   }
   const question = questions[step];
+  const needsIdentity = !!session && !submitted && step >= 2 && !verified;
+  const needsChoice =
+    !!session && !submitted && step >= 2 && verified && !choice;
   return (
     <div className="chat-widget">
       <header className="chat-header">
@@ -276,15 +335,198 @@ export function ChatWidget() {
             )}
           </div>
         )}
-        {session && !submitted && (
+        {session && !submitted && !verified && step < 2 && (
+          <Button
+            disabled={busy}
+            onClick={() =>
+              void action(async () => {
+                await refreshCsrf();
+                try {
+                  await api("/auth/chat-session", {
+                    method: "POST",
+                    body: JSON.stringify({
+                      id: session.id,
+                      token: session.token,
+                    }),
+                  });
+                } catch {
+                  throw new Error(
+                    "No hay una sesión de Sidecil disponible en este navegador. Continúa con tu correo y el código de verificación.",
+                  );
+                }
+                apply(
+                  await request<Snapshot>(
+                    "/sessions/" + session.id,
+                    {},
+                    session,
+                  ),
+                );
+                setTickets(
+                  await request<PendingTicket[]>(
+                    "/sessions/" + session.id + "/tickets",
+                    {},
+                    session,
+                  ),
+                );
+              })
+            }
+          >
+            Usar mi sesión de Sidecil
+          </Button>
+        )}
+        {needsIdentity && (
+          <div className="chat-review">
+            <h2>Verifica tu correo</h2>
+            <p>
+              Enviaremos un código a {draft.email} para consultar tus tickets y
+              continuar de forma segura.
+            </p>
+            {codeSent && (
+              <form
+                className="chat-answer"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void action(async () => {
+                    await request(
+                      "/sessions/" + session!.id + "/verify",
+                      { method: "POST", body: JSON.stringify({ code }) },
+                      session,
+                    );
+                    setVerified(true);
+                    setCode("");
+                    setTickets(
+                      await request<PendingTicket[]>(
+                        "/sessions/" + session!.id + "/tickets",
+                        {},
+                        session,
+                      ),
+                    );
+                  });
+                }}
+              >
+                <TextField
+                  label="Código de 8 dígitos"
+                  required
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.replace(/\D/g, "").slice(0, 8))
+                  }
+                  inputProps={{
+                    inputMode: "numeric",
+                    autoComplete: "one-time-code",
+                    pattern: "[0-9]{8}",
+                  }}
+                />
+                <Button type="submit" disabled={busy || code.length !== 8}>
+                  Verificar código
+                </Button>
+              </form>
+            )}
+            <Button
+              disabled={busy}
+              onClick={() =>
+                void action(async () => {
+                  await request(
+                    "/sessions/" + session!.id + "/verification",
+                    { method: "POST", body: "{}" },
+                    session,
+                  );
+                  setCodeSent(true);
+                })
+              }
+            >
+              {codeSent ? "Reenviar código" : "Enviar código"}
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setStep(1);
+                setCodeSent(false);
+              }}
+            >
+              Corregir correo
+            </Button>
+            <p>
+              El código vence en 10 minutos. La verificación se conserva durante
+              esta sesión, hasta 24 horas.
+            </p>
+          </div>
+        )}
+        {needsChoice && (
+          <div className="chat-review">
+            <h2>¿Tu consulta corresponde a uno de estos tickets?</h2>
+            {tickets.length === 0 && <p>No tienes tickets pendientes.</p>}
+            {tickets.map((ticket) => (
+              <Button
+                key={ticket.id}
+                fullWidth
+                disabled={busy}
+                onClick={() => {
+                  setSelected(ticket);
+                  setChoice(true);
+                  setStep(4);
+                }}
+              >
+                {ticket.number} · {ticket.subject} · {statuses[ticket.status]}
+              </Button>
+            ))}
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={busy}
+              onClick={() => {
+                setSelected(null);
+                setChoice(true);
+                setStep(2);
+              }}
+            >
+              Crear una nueva solicitud
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() =>
+                void action(async () =>
+                  setTickets(
+                    await request<PendingTicket[]>(
+                      "/sessions/" + session!.id + "/tickets",
+                      {},
+                      session,
+                    ),
+                  ),
+                )
+              }
+            >
+              Actualizar tickets
+            </Button>
+          </div>
+        )}
+        {session && !submitted && !needsIdentity && !needsChoice && (
           <>
+            {verified && (
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  setChoice(false);
+                  setStep(2);
+                }}
+              >
+                Elegir otro ticket o crear uno nuevo
+              </Button>
+            )}
             <div className="chat-transcript" aria-live="polite">
               {questions
                 .slice(0, Math.min(step + 1, questions.length))
-                .map((q, i) => (
+                .filter(
+                  (q) =>
+                    !selected ||
+                    q.key === "name" ||
+                    q.key === "email" ||
+                    q.key === "body",
+                )
+                .map((q) => (
                   <div key={q.key}>
                     <div className="chat-bubble assistant">{q.text}</div>
-                    {i < step && (
+                    {questions.indexOf(q) < step && (
                       <div className="chat-bubble customer">{draft[q.key]}</div>
                     )}
                   </div>
@@ -323,7 +565,7 @@ export function ChatWidget() {
                   disabled={busy}
                 />
                 <div className="chat-actions">
-                  {step > 0 && (
+                  {step > (verified ? 2 : 0) && !selected && (
                     <Button disabled={busy} onClick={() => setStep(step - 1)}>
                       Atrás
                     </Button>
@@ -342,16 +584,24 @@ export function ChatWidget() {
               </form>
             ) : (
               <div className="chat-review">
-                <h2>Revisa tu solicitud</h2>
+                <h2>
+                  {selected
+                    ? "Agregar información a " + selected.number
+                    : "Revisa tu solicitud"}
+                </h2>
                 <dl>
                   <dt>Nombre</dt>
                   <dd>{draft.name}</dd>
                   <dt>Correo</dt>
                   <dd>{draft.email}</dd>
-                  <dt>Módulo</dt>
-                  <dd>{draft.module}</dd>
-                  <dt>Asunto</dt>
-                  <dd>{draft.subject}</dd>
+                  {!selected && (
+                    <>
+                      <dt>Módulo</dt>
+                      <dd>{draft.module}</dd>
+                      <dt>Asunto</dt>
+                      <dd>{draft.subject}</dd>
+                    </>
+                  )}
                   <dt>Descripción</dt>
                   <dd>{draft.body}</dd>
                 </dl>
@@ -449,9 +699,8 @@ export function ChatWidget() {
                   </Button>
                 </div>
                 <p className="chat-caption">
-                  Al enviar, recibirás un enlace para verificar tu correo y
-                  crear el ticket. La conversación y los archivos se compartirán
-                  con el equipo de atención.
+                  Tu identidad ya está verificada. Enviaremos tu mensaje y
+                  archivos al equipo de atención.
                 </p>
                 <Button
                   fullWidth
@@ -461,18 +710,28 @@ export function ChatWidget() {
                   onClick={() =>
                     void action(async () => {
                       await save();
-                      await request(
-                        "/sessions/" + session.id + "/submit",
-                        { method: "POST", body: "{}" },
+                      const sent = await request<{ number: string }>(
+                        "/sessions/" + session.id + "/send",
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            ticketId: selected?.id ?? null,
+                          }),
+                        },
                         session,
                       );
+                      setNumber(sent.number);
                       setSubmitted(true);
                     })
                   }
                 >
-                  Confirmar y enviar solicitud
+                  {selected ? "Enviar al ticket" : "Confirmar y crear ticket"}
                 </Button>
-                <Button fullWidth disabled={busy} onClick={() => setStep(0)}>
+                <Button
+                  fullWidth
+                  disabled={busy}
+                  onClick={() => setStep(selected ? 4 : verified ? 2 : 0)}
+                >
                   Corregir datos
                 </Button>
               </div>
@@ -482,7 +741,9 @@ export function ChatWidget() {
         {submitted && (
           <div className="chat-complete" aria-live="polite">
             <CheckCircle2 size={42} />
-            <h1>{number ? "Tu ticket está creado." : "Revisa tu correo."}</h1>
+            <h1>
+              {number ? "Tu solicitud fue recibida." : "Revisa tu correo."}
+            </h1>
             {number ? (
               <>
                 <strong className="chat-ticket-number">{number}</strong>
@@ -519,7 +780,7 @@ export function ChatWidget() {
               solicitudes; todavía no responde consultas con IA.
             </p>
             <Button disabled={busy} onClick={start}>
-              Nueva solicitud
+              Continuar o crear otra solicitud
             </Button>
           </div>
         )}

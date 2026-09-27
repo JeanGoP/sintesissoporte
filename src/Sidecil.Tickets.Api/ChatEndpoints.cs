@@ -75,6 +75,7 @@ public static class ChatEndpoints
             if (tx is not null) await tx.CommitAsync();
             return result;
         });
+        ChatIdentity.Map(sessions);
         sessions.MapGet("", async (HttpContext http, TicketsDbContext db) => {
             var session = Session(http);
             var ticketId = session.GuestSubmissionId is { } pendingId
@@ -82,13 +83,16 @@ public static class ChatEndpoints
             var attachments = await db.ChatAttachments.Where(x => x.ConversationId == session.Id)
                 .Select(x => new { x.Id, x.FileName, x.Length }).ToListAsync();
             return Results.Ok(new { session.Name, session.Email, session.Module, session.Subject, session.Body, session.Category,
-                submitted = session.GuestSubmissionId != null, number = ticketId is { } ticket ? EmailComposer.Number(ticket) : null, attachments });
+                verified = ChatIdentity.Verified(session), codeSent = session.VerificationHash != null && session.VerificationExpiresAt > DateTime.UtcNow, submitted = session.GuestSubmissionId != null, number = ticketId is { } ticket ? EmailComposer.Number(ticket) : null, attachments });
         });
         sessions.MapPut("/draft", async (ChatDraftRequest request, HttpContext http, TicketsDbContext db) => {
             var session = Session(http);
             if (session.GuestSubmissionId != null) return Locked();
             if (!ChatRules.Categories.Contains(request.Category)) return Results.BadRequest();
-            session.Name = request.Name.Trim(); session.Email = request.Email.Trim().ToLowerInvariant();
+            var email = request.Email.Trim().ToLowerInvariant();
+            if (ChatIdentity.Verified(session) && email != session.Email) return Results.Problem("Inicia otra sesión para cambiar de correo.", statusCode: 409);
+            if (email != session.Email) { session.VerificationHash = null; session.VerificationExpiresAt = null; session.IdentityVerifiedAt = null; }
+            session.Name = request.Name.Trim(); session.Email = email;
             session.Module = request.Module.Trim(); session.Subject = request.Subject.Trim(); session.Body = request.Body.Trim(); session.Category = request.Category;
             await db.SaveChangesAsync(); return Results.NoContent();
         });
@@ -126,6 +130,7 @@ public static class ChatEndpoints
         });
         sessions.MapPost("/submit", async (HttpContext http, TicketsDbContext db, EmailComposer mail, IOptions<MailOptions> options) => {
             var session = Session(http);
+            if (ChatIdentity.Verified(session)) return Results.Problem("Usa el envío del chat verificado para continuar o crear un ticket.", statusCode: 409);
             if (session.GuestSubmissionId != null) return Results.Accepted(value: new { message = "La solicitud ya fue enviada. Revisa tu correo para confirmarla." });
             if (options.Value.Mode == "Disabled") return Results.Problem("El canal de correo no está disponible.", statusCode: 503);
             if (session.Name.Length < 2 || !new EmailAddressAttribute().IsValid(session.Email) || session.Subject.Length < 5 || session.Body.Length < 10 || session.Module.Length < 2)
