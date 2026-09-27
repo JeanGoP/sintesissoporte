@@ -89,7 +89,21 @@
   border-bottom-right-radius: 4px;
 }
 .chat-answer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
   padding-top: 10px;
+}
+.chat-answer > .MuiFormControl-root {
+  width: 100%;
+  min-width: 0;
+}
+.chat-answer .MuiSelect-select {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.chat-answer > .chat-actions {
+  margin-top: 0;
 }
 .chat-actions {
   display: flex;
