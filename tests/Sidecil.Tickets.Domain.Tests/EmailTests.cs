@@ -4,6 +4,25 @@ using Xunit;
 namespace Sidecil.Tickets.Domain.Tests;
 public sealed class EmailTests
 {
+    [Theory]
+    [InlineData("responses@example.test", "responses@example.test")]
+    [InlineData("", "support@example.test")]
+    public void OutgoingMimePreservesThreadIdAndRoutesRepliesSeparately(string replyTo, string expected)
+    {
+        var options = new MailOptions { FromAddress = "support@example.test", FromName = "Support", ReplyToAddress = replyTo };
+        var mail = new Sidecil.Tickets.Domain.OutboundEmail {
+            Recipient = "customer@example.test", Subject = "[SC-00001] Consulta", Body = "Respuesta",
+            MessageId = "stable-thread@example.test", CreatedAt = DateTime.UtcNow
+        };
+        using var message = OutboundDispatcher.CreateMessage(mail, options);
+        using var buffer = new MemoryStream();
+        message.WriteTo(buffer); buffer.Position = 0;
+        using var parsed = MimeMessage.Load(buffer);
+        Assert.Equal("support@example.test", parsed.From.Mailboxes.Single().Address);
+        Assert.Equal(expected, parsed.ReplyTo.Mailboxes.Single().Address);
+        Assert.Equal(mail.MessageId, parsed.MessageId);
+        Assert.Equal(mail.Body, parsed.TextBody?.TrimEnd('\r', '\n'));
+    }
     [Fact] public void TemplateExpansionIsNotRecursive()
     {
         Assert.Equal("Hola {firma}, SC-00012 / Soporte", EmailComposer.Render("Hola {nombre}, {numero} / {firma}", "{firma}", "SC-00012", "Consulta", "Soporte"));

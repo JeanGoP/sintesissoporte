@@ -7,6 +7,20 @@ using MimeKit;
 namespace Sidecil.Tickets.Infrastructure.Mail;
 public sealed class OutboundDispatcher(TicketsDbContext db, IOptions<MailOptions> options)
 {
+    public static MimeMessage CreateMessage(Sidecil.Tickets.Domain.OutboundEmail mail, MailOptions o)
+    {
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(o.FromName, o.FromAddress));
+        message.To.Add(MailboxAddress.Parse(mail.Recipient));
+        message.ReplyTo.Add(MailboxAddress.Parse(string.IsNullOrWhiteSpace(o.ReplyToAddress) ? o.FromAddress : o.ReplyToAddress));
+        message.Subject = mail.Subject;
+        message.MessageId = mail.MessageId;
+        message.Date = new DateTimeOffset(DateTime.SpecifyKind(mail.CreatedAt, DateTimeKind.Utc));
+        message.Headers.Add(HeaderId.AutoSubmitted, "auto-generated");
+        message.Headers.Add("X-Auto-Response-Suppress", "All");
+        message.Body = new TextPart("plain") { Text = mail.Body };
+        return message;
+    }
     public async Task<int> DispatchAsync(CancellationToken ct = default)
     {
         var o = options.Value;
@@ -29,16 +43,7 @@ public sealed class OutboundDispatcher(TicketsDbContext db, IOptions<MailOptions
                 continue;
             }
             try {
-                var message = new MimeMessage();
-                message.From.Add(new MailboxAddress(o.FromName, o.FromAddress));
-                message.To.Add(MailboxAddress.Parse(mail.Recipient));
-                message.ReplyTo.Add(MailboxAddress.Parse(o.FromAddress));
-                message.Subject = mail.Subject;
-                message.MessageId = mail.MessageId;
-                message.Date = new DateTimeOffset(DateTime.SpecifyKind(mail.CreatedAt, DateTimeKind.Utc));
-                message.Headers.Add(HeaderId.AutoSubmitted, "auto-generated");
-                message.Headers.Add("X-Auto-Response-Suppress", "All");
-                message.Body = new TextPart("plain") { Text = mail.Body };
+                using var message = CreateMessage(mail, o);
                 if (o.Mode == "Pickup") {
                     Directory.CreateDirectory(o.PickupDirectory);
                     var destination = Path.Combine(o.PickupDirectory, mail.Id + ".eml");

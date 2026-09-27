@@ -17,6 +17,10 @@ try {
     # Recursos del chat embebido incluidos en el backend.
     & $NodeExecutable $npm --prefix src/sidecil-tickets-web run build
     if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación de los recursos del chat.' }
+    # Servicio autorizado en la misma entrega; no reemplaza appsettings de IIS.
+    & $sdk publish src/Sidecil.Tickets.Worker -c Release --no-self-contained -p:MailBundle=true -p:DebugType=None -p:DebugSymbols=false -o publish
+    if ($LASTEXITCODE -ne 0) { throw 'Fallo la publicacion del servicio de correo.' }
+    Copy-Item scripts/Configurar-Correo.ps1 (Join-Path $root 'publish/Configurar-Correo.ps1')
     & $sdk publish src/Sidecil.Tickets.Api -c Release --no-self-contained -p:DebugType=None -p:DebugSymbols=false -o publish
     if ($LASTEXITCODE -ne 0) { throw 'Falló la publicación del backend.' }
     $development = Join-Path $root 'publish/appsettings.Development.json'

@@ -4,6 +4,8 @@ using Sidecil.Tickets.Infrastructure;
 using Sidecil.Tickets.Infrastructure.Mail;
 
 var builder = Host.CreateApplicationBuilder(args);
+// Configuracion privada del servicio; IIS no carga este archivo.
+builder.Configuration.AddJsonFile("mailsettings.Production.json", optional: true, reloadOnChange: false).AddEnvironmentVariables();
 builder.Services.AddWindowsService(options => options.ServiceName = "Sidecil Tickets Mail");
 var connection = builder.Configuration.GetConnectionString("Tickets") ?? throw new InvalidOperationException("Configura ConnectionStrings__Tickets.");
 builder.Services.AddDbContext<TicketsDbContext>(o => o.UseSqlServer(connection));
@@ -21,6 +23,10 @@ if (mail.Mode == "Smtp" && (string.IsNullOrWhiteSpace(mail.SmtpHost) || string.I
     throw new InvalidOperationException("Configura SMTP, remitente real y URL pública HTTPS.");
 if (mail.Mode == "Smtp" && !string.IsNullOrEmpty(mail.ImapHost) && string.IsNullOrWhiteSpace(mail.TrustedAuthenticationService))
     throw new InvalidOperationException("Configura el Authentication-Results de confianza del proveedor IMAP.");
+if (args.Contains("--check-mail")) {
+    Environment.ExitCode = await MailConnectionCheck.RunAsync(connection, mail);
+    return;
+}
 if (!args.Contains("--once")) builder.Services.AddHostedService<MailWorker>();
 using var host = builder.Build();
 if (args.Contains("--once")) {

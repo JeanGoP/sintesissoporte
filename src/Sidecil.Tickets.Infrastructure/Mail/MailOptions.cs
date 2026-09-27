@@ -3,6 +3,7 @@ public sealed class MailOptions
 {
     public string Mode { get; set; } = "Disabled"; // Disabled, Pickup (Development), Smtp
     public string FromAddress { get; set; } = "soporte@sidecil.invalid";
+    public string ReplyToAddress { get; set; } = "";
     public string FromName { get; set; } = "Sidecil · Atención al cliente";
     public string PublicBaseUrl { get; set; } = "http://localhost:5080";
     public string PickupDirectory { get; set; } = "";

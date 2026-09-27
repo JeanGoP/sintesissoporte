@@ -81,3 +81,22 @@ Antes de ejecutar la suite de correo, detener el Worker continuo local; la prueb
 - MailKit SMTP: https://mimekit.net/docs/html/Overload_MailKit_Net_Smtp_SmtpClient_SendAsync.htm
 - MailKit IMAP: https://mimekit.net/docs/html/T_MailKit_Net_Imap_ImapClient.htm
 - SASL OAuth2: https://mimekit.net/docs/html/T_MailKit_Security_SaslMechanismOAuth2.htm
+
+## Instalacion de TurboSMTP y Gmail en el servidor
+
+El servicio y Configurar-Correo.ps1 se entregan junto a la API en la misma carpeta publish. No se instalan servicios en el equipo de desarrollo.
+
+1. Detener el grupo IIS dedicado de la API y, en actualizaciones, el servicio `Sidecil Tickets Mail`.
+2. Copiar los binarios y Configurar-Correo.ps1 a la carpeta de la API. Conservar los archivos privados appsettings.Production.json y mailsettings.Production.json del servidor; no reemplazarlos con los de desarrollo.
+3. Abrir Windows PowerShell como administrador, entrar a esa carpeta y ejecutar `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Configurar-Correo.ps1`.
+4. Introducir el remitente autorizado en Turbo, la direccion de Gmail, Consumer Key, Consumer Secret y contrasena de aplicacion de Gmail. Las claves se solicitan con entrada oculta. No usar la contrasena habitual de Google.
+5. El instalador prueba tablas SQL, autenticacion SMTP (TLS directo, puerto 465) e IMAP (TLS, puerto 993) sin enviar ni importar mensajes durante la comprobacion. Luego configura e inicia el servicio con LocalService y habilita Mail.Mode=Smtp en la API. Requiere SQL con usuario y contrasena; la autenticacion integrada necesita configurar una identidad de servicio aparte.
+6. Iniciar/reciclar solamente el grupo IIS de la API. Crear una solicitud de prueba desde otro correo, confirmar el enlace, comprobar el acuse y responderlo. Revisar que el texto aparezca en el ticket.
+
+La comprobacion de autenticacion no garantiza entrega ni autorizacion del remitente: la prueba real del punto 6 es necesaria. En Correo de atencion se ven los envios fallidos y respuestas en revision. Los errores del servicio quedan en el Visor de eventos de Windows.
+
+Las claves de correo se guardan en mailsettings.Production.json, fuera de wwwroot, con lectura limitada a LocalService y acceso de administradores/SYSTEM. La API solo recibe el modo y la URL publica. El instalador conserva las claves Microsoft/Google y la conexion SQL existentes. Los archivos privados se preservan en las publicaciones siguientes.
+
+FromAddress controla el remitente de Turbo; ReplyToAddress dirige las respuestas a Gmail. Si ReplyToAddress queda vacio, se conserva el comportamiento anterior (responder al remitente). El buzon INBOX se lee sin modificar ni borrar correos, empezando por su historial la primera vez; utilizar un buzon dedicado.
+
+Gmail se configura con mx.google.com como servicio de autenticacion esperado. Las respuestas solo se incorporan automaticamente cuando la primera cabecera Authentication-Results valida DMARC y el remitente corresponde al solicitante del ticket. Un correo que no cumpla queda en revision; comprobar este comportamiento con mensajes reales antes de dar la recepcion por validada. Los adjuntos entrantes siguen requiriendo revision manual.

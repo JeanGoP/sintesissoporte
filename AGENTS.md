@@ -24,3 +24,4 @@
 - Publicar solamente el backend directamente en la carpeta publish de la raíz usando scripts/Publish-Backend.ps1.
 - No generar ZIP, paquetes fechados ni carpetas de entrega iis, sql o worker. Conservar el código fuente de esas funciones.
 - Los archivos necesarios para la demostración local se guardan en .local/runtime, fuera de la entrega.
+- El usuario autorizo incluir el servicio de correo y su instalador dentro de publish, sin carpetas adicionales de entrega. Conservar las direcciones y claves en configuracion privada del servidor y preservar mailsettings.Production.json en futuras actualizaciones.

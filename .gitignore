@@ -31,3 +31,4 @@ test-results/
 
 # Publicación local del backend
 publish/
+**/mailsettings.Production.json
