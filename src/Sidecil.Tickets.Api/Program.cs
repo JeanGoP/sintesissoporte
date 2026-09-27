@@ -109,7 +109,7 @@ app.Use(async (context, next) => {
     }
     context.Response.Headers.XContentTypeOptions = "nosniff";
     if (!context.Response.Headers.ContainsKey("Referrer-Policy")) context.Response.Headers["Referrer-Policy"] = "same-origin";
-    context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors {ancestors}; base-uri 'self'; form-action 'self'";
+    context.Response.Headers["Content-Security-Policy"] = $"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; frame-src 'self' blob:; font-src 'self'; connect-src 'self'; frame-ancestors {ancestors}; base-uri 'self'; form-action 'self'";
     if (context.Request.Path.StartsWithSegments("/api")) context.Response.Headers.CacheControl = "no-store";
     await next();
 });

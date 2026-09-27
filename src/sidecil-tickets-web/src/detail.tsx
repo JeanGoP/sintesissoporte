@@ -1,5 +1,5 @@
 import { ClassifyTicket } from "./classify-ticket";
-import { backendUrl } from "./backend";
+import { TicketAttachments } from "./attachment-preview";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -147,22 +147,7 @@ export function DetailPage({ user }: { user: User }) {
             <h2>Conversación</h2>
             <span className="count">{t.messages.length}</span>
           </div>
-          {t.attachments?.length > 0 && (
-            <section className="ticket-attachments">
-              <h3>Archivos recibidos desde el chat</h3>
-              {t.attachments.map((file) => (
-                <a
-                  key={file.id}
-                  href={backendUrl(
-                    "/api/v1/tickets/" + t.id + "/attachments/" + file.id,
-                  )}
-                  download
-                >
-                  {file.fileName} · {(file.length / 1024).toFixed(1)} KB
-                </a>
-              ))}
-            </section>
-          )}
+          {t.attachments?.length > 0 && <TicketAttachments key={t.id} ticketId={t.id} files={t.attachments} />}
           <div className="messages">
             {t.messages.map((m) => (
               <article
