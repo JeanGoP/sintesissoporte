@@ -1,3 +1,4 @@
+import { AgentLifecycleActions } from "./agent-lifecycle";
 import { CatalogAdmin, UserScopeEditor } from "./catalog-admin";
 import { ExternalConnections } from "./external-login";
 import { useState } from "react";
@@ -110,6 +111,7 @@ export function AdminPage() {
                 <th>Rol</th>
                 <th>Invitación</th>
                 <th>Acceso</th>
+                <th>Estado y acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -167,6 +169,9 @@ export function AdminPage() {
                         onSaved={() => void directory.refetch()}
                       />
                     )}
+                  </td>
+                  <td>
+                    <AgentLifecycleActions user={u} />
                   </td>
                 </tr>
               ))}

@@ -83,6 +83,7 @@ export type Directory = {
         email: string;
         role: string;
         invitationPending?: boolean;
+        isActive?: boolean;
         moduleIds: string[];
         organizationIds: string[];
         organizationId: string;

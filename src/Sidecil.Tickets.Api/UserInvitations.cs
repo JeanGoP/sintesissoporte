@@ -34,7 +34,7 @@ public sealed class UserInvitations(TicketsDbContext db, UserManager<Application
         if (!Enabled) return Results.Problem("Configura el correo antes de enviar invitaciones.", statusCode: 400);
         await using var tx = await db.Database.BeginTransactionAsync();
         var user = await users.FindByIdAsync(id);
-        if (user is null || await users.HasPasswordAsync(user) || (await users.GetLoginsAsync(user)).Count != 0)
+        if (user is null || user.LockoutEnd == AdministrationLifecycle.DisabledUntil || await users.HasPasswordAsync(user) || (await users.GetLoginsAsync(user)).Count != 0)
             return Results.Problem("Esta cuenta no tiene una invitación pendiente.", statusCode: 400);
         if (!(await users.UpdateSecurityStampAsync(user)).Succeeded) return Results.Conflict();
         await QueueAsync(user);
@@ -45,7 +45,7 @@ public sealed class UserInvitations(TicketsDbContext db, UserManager<Application
     {
         await using var tx = await db.Database.BeginTransactionAsync();
         var user = await users.FindByIdAsync(request.UserId);
-        if (user is null || await users.HasPasswordAsync(user) || (await users.GetLoginsAsync(user)).Count != 0 ||
+        if (user is null || user.LockoutEnd == AdministrationLifecycle.DisabledUntil || await users.HasPasswordAsync(user) || (await users.GetLoginsAsync(user)).Count != 0 ||
             !await users.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, "Invitation", request.Token))
             return Results.Problem("El enlace no es válido, venció o ya fue utilizado. Solicita una nueva invitación al administrador.", statusCode: 400);
         var result = await users.AddPasswordAsync(user, request.Password);

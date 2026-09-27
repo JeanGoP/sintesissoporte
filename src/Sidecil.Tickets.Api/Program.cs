@@ -28,6 +28,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(o => {
     o.Lockout.MaxFailedAccessAttempts = 5;
     o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 }).AddEntityFrameworkStores<TicketsDbContext>().AddDefaultTokenProviders();
+builder.Services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero);
 builder.Services.ConfigureApplicationCookie(o => {
     o.Cookie.Name = "Sidecil.Session";
     o.Cookie.HttpOnly = true;

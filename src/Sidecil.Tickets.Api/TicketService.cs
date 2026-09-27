@@ -61,7 +61,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         }
         query = view switch
         {
-            "needs-routing" when actor.Role == "Admin" => query.Where(t => t.ModuleId == null || !db.AgentModules.Any(m => m.ModuleId == t.ModuleId && db.Users.Any(u => u.Id == m.UserId && u.Role == "Agent"))),
+            "needs-routing" when actor.Role == "Admin" => query.Where(t => t.ModuleId == null || !db.AgentModules.Any(m => m.ModuleId == t.ModuleId && db.Users.Any(u => u.Id == m.UserId && u.Role == "Agent" && u.LockoutEnd != AdministrationLifecycle.DisabledUntil))),
             "replies" => query.Where(t => t.HasCustomerReply),
             "mine" => query.Where(t => t.AssigneeId == actor.Id),
             "unassigned" => query.Where(t => t.AssigneeId == null && t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed && t.Status != TicketStatus.Cancelled),
@@ -286,7 +286,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         if (request.AssigneeId is not null)
         {
             assignee = await db.Users.FirstOrDefaultAsync(u => u.Id == request.AssigneeId &&
-                (u.Role == "Admin" || u.Role == "Agent" && db.AgentModules.Any(m => m.UserId == u.Id && m.ModuleId == ticket.ModuleId)));
+                (u.Role == "Admin" || u.Role == "Agent" && u.LockoutEnd != AdministrationLifecycle.DisabledUntil && db.AgentModules.Any(m => m.UserId == u.Id && m.ModuleId == ticket.ModuleId)));
             if (assignee is null) return Bad("El responsable no tiene acceso al módulo.");
         }
         ticket.AssigneeId = request.AssigneeId;
@@ -304,11 +304,11 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         {
             categories = await db.SupportCategories.Where(x => x.Enabled).OrderBy(x => x.Name).Select(x => x.Name).ToListAsync(),
             modules = await (from m in SupportCatalog.Active(db) join cat in db.SupportCategories on m.CategoryId equals cat.Id select new { m.Id, m.Name, category = cat.Name }).ToListAsync(),
-            agents = staff ? await db.Users.Where(u => u.Role == "Admin" || u.Role == "Agent")
+            agents = staff ? await db.Users.Where(u => u.Role == "Admin" || u.Role == "Agent" && u.LockoutEnd != AdministrationLifecycle.DisabledUntil)
                 .Select(u => new { u.Id, u.DisplayName, u.TeamId, u.Role, moduleIds = db.AgentModules.Where(m => m.UserId == u.Id).Select(m => m.ModuleId).ToList() }).ToListAsync() : null,
             organizations = await db.Organizations.Where(o => actor.Role == "Admin" || o.Id == actor.OrganizationId || db.UserOrganizations.Any(m => m.UserId == actor.Id && m.OrganizationId == o.Id)).OrderBy(o => o.Name).ToListAsync(),
             teams = actor.Role == "Admin" ? await db.Teams.OrderBy(t => t.Name).ToListAsync() : null,
-            users = actor.Role == "Admin" ? await db.Users.OrderBy(u => u.DisplayName).Select(u => new { u.Id, u.DisplayName, u.Email, u.Role, u.OrganizationId, u.TeamId, moduleIds = db.AgentModules.Where(m => m.UserId == u.Id).Select(m => m.ModuleId).ToList(), organizationIds = db.UserOrganizations.Where(m => m.UserId == u.Id).Select(m => m.OrganizationId).ToList(), invitationPending = u.PasswordHash == null && !db.UserLogins.Any(l => l.UserId == u.Id) }).ToListAsync() : null
+            users = actor.Role == "Admin" ? await db.Users.OrderBy(u => u.DisplayName).Select(u => new { u.Id, u.DisplayName, u.Email, u.Role, isActive = u.LockoutEnd != AdministrationLifecycle.DisabledUntil, u.OrganizationId, u.TeamId, moduleIds = db.AgentModules.Where(m => m.UserId == u.Id).Select(m => m.ModuleId).ToList(), organizationIds = db.UserOrganizations.Where(m => m.UserId == u.Id).Select(m => m.OrganizationId).ToList(), invitationPending = u.PasswordHash == null && !db.UserLogins.Any(l => l.UserId == u.Id) }).ToListAsync() : null
         });
     }
 
@@ -354,7 +354,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         ticket.ModuleId = module.Id; ticket.Category = await db.SupportCategories.Where(x => x.Id == module.CategoryId).Select(x => x.Name).SingleAsync();
         if (r.OrganizationId is { } organization) { ticket.OrganizationId = organization; ticket.CompanyName = null; }
         if (r.CompanyName != null) ticket.CompanyName = r.CompanyName.Trim();
-        if (ticket.AssigneeId != null && !await db.Users.AnyAsync(u => u.Id == ticket.AssigneeId && (u.Role == "Admin" || u.Role == "Agent" && db.AgentModules.Any(m => m.UserId == u.Id && m.ModuleId == ticket.ModuleId)))) ticket.AssigneeId = null;
+        if (ticket.AssigneeId != null && !await db.Users.AnyAsync(u => u.Id == ticket.AssigneeId && (u.Role == "Admin" || u.Role == "Agent" && u.LockoutEnd != AdministrationLifecycle.DisabledUntil && db.AgentModules.Any(m => m.UserId == u.Id && m.ModuleId == ticket.ModuleId)))) ticket.AssigneeId = null;
         ticket.UpdatedAt = DateTime.UtcNow; Event(ticket, actor, "Classified", "Empresa, categoría y módulo actualizados."); await db.SaveChangesAsync(); return Results.NoContent();
     }
     public async Task<IResult> CreateOrganizationAsync(HttpContext c, CreateOrganizationRequest request)

@@ -38,3 +38,13 @@ Desplegar el frontend en Coolify después del backend. El widget actualizado est
 ## Validación
 
 Pruebas de integración: empresa no autorizada, módulo de otra categoría, catálogos restringidos al administrador, listado y descarga por módulo, asignación, notas internas, retirada de permisos y módulos desactivados. Regresiones de chat, OAuth, invitaciones y adjuntos. Pruebas de navegador de maestros, permisos y formularios dependientes.
+
+## Bajas de agentes y eliminación de errores
+
+En **Personas y acceso**, cada agente muestra su estado y botones para **Desactivar**, **Reactivar** y **Eliminar agente**, con confirmación previa.
+
+- Desactivar bloquea contraseña y Microsoft/Google, invalida sesiones y libera tickets pendientes. Conserva historial y módulos. Reactivar exige un nuevo inicio de sesión y no recupera automáticamente los tickets liberados.
+- Eliminar solo se admite para agentes sin historial de tickets, mensajes, eventos o conversaciones. Un agente que tuvo tickets pendientes liberados al desactivarlo conserva constancia de esa participación y tampoco se elimina.
+- Estas acciones no permiten borrar administradores ni solicitantes.
+- En la edición de una categoría o módulo está **Eliminar**. La categoría debe estar sin módulos ni solicitudes históricas; un módulo debe estar sin tickets, solicitudes, conversaciones o asignaciones a agentes. El mensaje indica qué relación lo impide. Desactivar sigue disponible cuando existe historial.
+- No requiere migración: la baja usa el bloqueo persistente de Identity y renueva el sello de seguridad. Se comprueba ese sello en cada petición autenticada para revocar sesiones sin esperar al vencimiento de la cookie.

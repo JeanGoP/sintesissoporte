@@ -36,6 +36,7 @@ export function CatalogAdmin() {
   }>();
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   return (
     <section className="inbox-panel" style={{ marginTop: 24 }}>
       <div className="panel-title">
@@ -198,6 +199,18 @@ export function CatalogAdmin() {
             </div>
           </DialogContent>
           <DialogActions>
+            {edit?.id && (
+              <Button
+                color="error"
+                disabled={busy}
+                onClick={() => {
+                  setError(undefined);
+                  setDeleting(true);
+                }}
+              >
+                Eliminar
+              </Button>
+            )}
             <Button disabled={busy} onClick={() => setEdit(undefined)}>
               Cancelar
             </Button>
@@ -206,6 +219,53 @@ export function CatalogAdmin() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+      <Dialog
+        open={deleting}
+        onClose={() => !busy && setDeleting(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Eliminar {edit?.kind === "categories" ? "categoría" : "módulo"}
+        </DialogTitle>
+        <DialogContent>
+          <p>
+            ¿Eliminar «{edit?.name}»? Solo se permite si no tiene registros
+            relacionados. Esta acción no se puede deshacer.
+          </p>
+          <ErrorBox error={error} />
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={busy} onClick={() => setDeleting(false)}>
+            Cancelar
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={busy}
+            onClick={async () => {
+              if (!edit?.id) return;
+              setBusy(true);
+              setError(undefined);
+              try {
+                await api("/admin/catalog/" + edit.kind + "/" + edit.id, {
+                  method: "DELETE",
+                });
+                setDeleting(false);
+                setEdit(undefined);
+                await client.invalidateQueries({ queryKey: ["catalog-admin"] });
+                await client.invalidateQueries({ queryKey: ["directory"] });
+              } catch (e) {
+                setError(e);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Eliminar definitivamente
+          </Button>
+        </DialogActions>
       </Dialog>
     </section>
   );

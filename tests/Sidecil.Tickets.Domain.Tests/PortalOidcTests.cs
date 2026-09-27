@@ -29,7 +29,7 @@ public sealed partial class PortalOidcTests
         client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
         client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrf.GetProperty("token").GetString());
     }
-    private static async Task<string> Challenge(HttpClient client, PortalOidcFactory factory, string provider, bool linking, string failure) {
+    private static async Task<string> Challenge(HttpClient client, PortalOidcFactory factory, string provider, bool linking, string failure, bool checkReplay = true) {
         await Csrf(client);
         var begin = await client.PostAsJsonAsync(linking ? "/api/v1/auth/connections/" + provider : "/api/v1/auth/external/" + provider, new { password = Password });
         begin.EnsureSuccessStatusCode();
@@ -40,7 +40,7 @@ public sealed partial class PortalOidcTests
         Assert.Equal("S256", query["code_challenge_method"]);
         Assert.Equal("code", query["response_type"]);
         Assert.Equal(new[] { "email", "openid", "profile" }, query["scope"].ToString().Split(' ').OrderBy(x => x));
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync(link)).StatusCode);
+        if (checkReplay) Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync(link)).StatusCode);
         factory.Backchannel.Provider = provider; factory.Backchannel.Failure = failure;
         factory.Backchannel.Nonce = query["nonce"].ToString(); factory.Backchannel.Challenge = query["code_challenge"].ToString();
         return QueryHelpers.AddQueryString("/signin-" + provider.ToLowerInvariant(), new Dictionary<string,string?> { ["state"] = query["state"].ToString(), ["code"] = "test-code" });

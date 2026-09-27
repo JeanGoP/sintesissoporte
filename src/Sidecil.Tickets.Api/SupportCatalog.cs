@@ -14,6 +14,7 @@ public static class SupportCatalog
     {
         var admin = app.MapGroup("/api/v1/admin/catalog").RequireAuthorization().AddEndpointFilter<ValidationFilter>();
         admin.AddEndpointFilter(async (ctx, next) => (await ctx.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>().GetUserAsync(ctx.HttpContext.User))?.Role == "Admin" ? await next(ctx) : Results.Forbid());
+        AdministrationLifecycle.Map(admin);
         admin.MapGet("", async (TicketsDbContext db) => Results.Ok(new { categories = await db.SupportCategories.OrderBy(x => x.Name).ToListAsync(), modules = await db.SupportModules.OrderBy(x => x.Name).ToListAsync() }));
         admin.MapPost("/categories", async (CategoryRequest r, TicketsDbContext db) =>
         {
