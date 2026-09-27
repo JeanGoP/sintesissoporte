@@ -2,7 +2,15 @@ import { SupportFields } from "./support-fields";
 import { api, refreshCsrf, statuses, type Status } from "./api";
 import { backendUrl } from "./backend";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, TextField, MenuItem } from "@mui/material";
+import {
+  Alert,
+  Button,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
 import {
   MessageCircle,
   Send,
@@ -10,6 +18,7 @@ import {
   Trash2,
   CheckCircle2,
   ArrowRight,
+  RotateCcw,
 } from "lucide-react";
 import { Brand } from "./Brand";
 import "./chat.css";
@@ -122,11 +131,36 @@ export function ChatWidget() {
   const [choice, setChoice] = useState(false);
   const [selected, setSelected] = useState<PendingTicket | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
+  const generation = useRef(0);
+  const [resetOpen, setResetOpen] = useState(false);
+  function resetChat() {
+    setResetOpen(false);
+    generation.current++;
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {
+      /* El chat también funciona sin almacenamiento. */
+    }
+    setSession(undefined);
+    setDraft({ ...empty });
+    setStep(0);
+    setFiles([]);
+    setSubmitted(false);
+    setNumber(null);
+    setError("");
+    setVerified(false);
+    setCodeSent(false);
+    setCode("");
+    setTickets([]);
+    setChoice(false);
+    setSelected(null);
+  }
   async function request<T>(
     path: string,
     options: RequestInit = {},
     active?: Session,
   ): Promise<T> {
+    const currentGeneration = generation.current;
     const response = await fetch(backendUrl("/api/v1/chat" + path), {
       ...options,
       credentials: "omit",
@@ -137,6 +171,8 @@ export function ChatWidget() {
         ...options.headers,
       },
     });
+    if (currentGeneration !== generation.current)
+      throw new Error("Conversación reiniciada.");
     if (!response.ok) {
       if (response.status === 401) {
         setVerified(false);
@@ -316,6 +352,18 @@ export function ChatWidget() {
         <div>
           <span className="chat-online" /> Soporte · {config?.name || "Sidecil"}
         </div>
+        <Button
+          size="small"
+          disabled={!ready || busy}
+          onClick={() => {
+            if (!submitted && (draft.name || files.length)) setResetOpen(true);
+            else resetChat();
+          }}
+          startIcon={<RotateCcw size={15} />}
+          title="Empezar de nuevo sin eliminar tus tickets"
+        >
+          Reiniciar chat
+        </Button>
       </header>
       <div className="chat-scroll" ref={scroll}>
         {config?.testMode && (
@@ -808,6 +856,24 @@ export function ChatWidget() {
           </Alert>
         )}
       </div>
+      <Dialog
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>¿Reiniciar el chat?</DialogTitle>
+        <DialogContent>
+          Se descartará el borrador y tendrás que identificarte nuevamente. Los
+          tickets enviados se conservan.
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={resetChat}>
+            Reiniciar
+          </Button>
+        </DialogActions>
+      </Dialog>
       <footer className="chat-footer">
         Atención de Sidecil · Tu solicitud en buenas manos
       </footer>
