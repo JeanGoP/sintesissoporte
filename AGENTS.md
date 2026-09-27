@@ -15,6 +15,7 @@
 - Backend C# en IIS: https://www.sintesiserp.com.co/API_SoporteSidecil, como aplicación IIS con pool dedicado; no reemplazar el sitio ERP padre.
 - SQL Server y Worker permanecen en el servidor/red de Sidecil.
 - La base de datos de producción se llama SintesisCloudSoporte. Usar ese nombre en futuras publicaciones; no renombrar ni modificar la base local de desarrollo.
+- Para futuras publicaciones, la conexión SQL de producción debe conservar Encrypt=True;TrustServerCertificate=True, según la configuración confirmada por el usuario. Preservar las credenciales privadas del servidor.
 - Mantener soporte de PathBase /API_SoporteSidecil en API, OAuth, recursos y widget; frontend usa VITE_API_URL y API usa Frontend__PublicBaseUrl.
 - El widget embebido conserva recursos en IIS para la política de enmarcado por integración. No borrar wwwroot del paquete IIS.
 
