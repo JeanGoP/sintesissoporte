@@ -7,7 +7,7 @@ if (!(Test-Path -LiteralPath (Join-Path $CarpetaBackend 'Sidecil.Tickets.Api.dll
     throw 'Copia este script junto a Sidecil.Tickets.Api.dll en el servidor y ejecutalo desde esa carpeta.'
 }
 if (!(Test-Path -LiteralPath (Join-Path $CarpetaBackend 'appsettings.Production.json'))) {
-    throw 'Falta appsettings.Production.json con la conexion a SidecilCloudSoporte.'
+    throw 'Falta appsettings.Production.json con la conexion a SintesisCloudSoporte.'
 }
 $null = Get-Command dotnet -ErrorAction Stop
 $correo = (Read-Host 'Correo del administrador').Trim()

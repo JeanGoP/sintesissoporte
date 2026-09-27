@@ -7,7 +7,7 @@
     "PublicBaseUrl": "https://soporte.sintesiserp.com.co"
   },
   "ConnectionStrings": {
-    "Tickets": "Server=TU-SERVIDOR-SQL;Database=SidecilCloudSoporte;Integrated Security=True;Encrypt=True;TrustServerCertificate=False"
+    "Tickets": "Server=TU-SERVIDOR-SQL;Database=SintesisCloudSoporte;Integrated Security=True;Encrypt=True;TrustServerCertificate=False"
   },
   "DataProtection": {
     "Path": "C:\\ProgramData\\SidecilTickets\\keys"

@@ -21,7 +21,7 @@ ASPNETCORE_ENVIRONMENT=Production
 AllowedHosts=sintesiserp.com.co;www.sintesiserp.com.co
 Hosting__PathBase=/API_SoporteSidecil
 Frontend__PublicBaseUrl=https://soporte.sintesiserp.com.co
-ConnectionStrings__Tickets=CONEXION_PRIVADA_SQL_CON_DATABASE_SidecilCloudSoporte
+ConnectionStrings__Tickets=CONEXION_PRIVADA_SQL_CON_DATABASE_SintesisCloudSoporte
 DataProtection__Path=C:\ProgramData\SidecilTickets\keys
 Mail__PublicBaseUrl=https://soporte.sintesiserp.com.co
 ```
