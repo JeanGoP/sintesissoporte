@@ -1,3 +1,4 @@
+import { UserRoleEditor } from "./user-role";
 import { AgentLifecycleActions } from "./agent-lifecycle";
 import { CatalogAdmin, UserScopeEditor } from "./catalog-admin";
 import { ExternalConnections } from "./external-login";
@@ -171,6 +172,7 @@ export function AdminPage() {
                     )}
                   </td>
                   <td>
+                    <UserRoleEditor user={u} modules={directory.data?.modules || []} />
                     <AgentLifecycleActions user={u} />
                   </td>
                 </tr>
