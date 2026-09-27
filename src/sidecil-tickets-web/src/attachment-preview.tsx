@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
+import { Alert, Button, IconButton, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
 import { Download, Eye } from "lucide-react";
 import { backendUrl } from "./backend";
 import type { TicketDetail } from "./api";
@@ -24,8 +24,8 @@ export function TicketAttachments({ ticketId, files }: { ticketId: string; files
     {files.map(file => <div className="attachment-row" key={file.id}>
       <div className="attachment-name"><strong>{file.fileName}</strong><span>{(file.length / 1024).toFixed(1)} KB</span></div>
       <div className="attachment-actions">
-        {mime(file.fileName) && <Button startIcon={<Eye size={16}/>} onClick={() => setSelected(file)} aria-label={"Ver " + file.fileName}>Ver</Button>}
-        <Button component="a" href={url(ticketId, file)} download startIcon={<Download size={16}/>} aria-label={"Descargar " + file.fileName}>Descargar</Button>
+        {mime(file.fileName) && <IconButton color="primary" title="Ver" onClick={() => setSelected(file)} aria-label={"Ver " + file.fileName}><Eye size={18}/></IconButton>}
+        <IconButton color="primary" component="a" href={url(ticketId, file)} download title="Descargar" aria-label={"Descargar " + file.fileName}><Download size={18}/></IconButton>
       </div>
     </div>)}
     {selected && <AttachmentPreview key={ticketId + selected.id} ticketId={ticketId} file={selected} close={() => setSelected(null)}/>}
@@ -68,7 +68,7 @@ function AttachmentPreview({ ticketId, file, close }: { ticketId: string; file: 
         : <img src={content.url} alt={file.fileName}/>}
     </DialogContent>
     <DialogActions>
-      <Button component="a" href={url(ticketId, file)} download startIcon={<Download size={16}/>}>Descargar</Button>
+      <IconButton color="primary" component="a" href={url(ticketId, file)} download title="Descargar" aria-label="Descargar"><Download size={18}/></IconButton>
       <Button onClick={close}>Cerrar</Button>
     </DialogActions>
   </Dialog>;
