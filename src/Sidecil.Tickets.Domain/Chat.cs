@@ -20,6 +20,8 @@ public sealed class ChatConversation
     public string Subject { get; set; } = "";
     public string Body { get; set; } = "";
     public string Category { get; set; } = "General";
+    public Guid? ModuleId { get; set; }
+    public string? CompanyName { get; set; }
     public string? IdentityProvider { get; set; }
     public string? IdentityIssuer { get; set; }
     public string? IdentitySubject { get; set; }

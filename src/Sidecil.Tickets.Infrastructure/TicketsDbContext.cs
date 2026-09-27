@@ -16,6 +16,10 @@ public sealed class ApplicationUser : IdentityUser
 
 public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
+    public DbSet<SupportCategory> SupportCategories => Set<SupportCategory>();
+    public DbSet<SupportModule> SupportModules => Set<SupportModule>();
+    public DbSet<AgentModule> AgentModules => Set<AgentModule>();
+    public DbSet<UserOrganization> UserOrganizations => Set<UserOrganization>();
     public DbSet<ChatLoginAttempt> ChatLoginAttempts => Set<ChatLoginAttempt>();
     public DbSet<PortalLoginAttempt> PortalLoginAttempts => Set<PortalLoginAttempt>();
     public DbSet<ChatSite> ChatSites => Set<ChatSite>();
@@ -38,6 +42,22 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
     protected override void OnModelCreating(ModelBuilder model)
     {
         base.OnModelCreating(model);
+        model.Entity<SupportCategory>(e => { e.ToTable("Categories", "tickets"); e.Property(x => x.Name).HasMaxLength(60); e.HasIndex(x => x.Name).IsUnique(); });
+        model.Entity<SupportModule>(e => { e.ToTable("Modules", "tickets"); e.Property(x => x.Name).HasMaxLength(120); e.HasIndex(x => new { x.CategoryId, x.Name }).IsUnique(); e.HasOne<SupportCategory>().WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict); });
+        model.Entity<AgentModule>(e => { e.ToTable("AgentModules", "identity"); e.HasKey(x => new { x.UserId, x.ModuleId }); e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade); e.HasOne<SupportModule>().WithMany().HasForeignKey(x => x.ModuleId).OnDelete(DeleteBehavior.Restrict); });
+        model.Entity<UserOrganization>(e => { e.ToTable("UserOrganizations", "identity"); e.HasKey(x => new { x.UserId, x.OrganizationId }); e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade); e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict); });
+        model.Entity<Ticket>().Property(x => x.CompanyName).HasMaxLength(120);
+        model.Entity<GuestSubmission>().Property(x => x.CompanyName).HasMaxLength(120);
+        model.Entity<ChatConversation>().Property(x => x.CompanyName).HasMaxLength(120);
+        model.Entity<Ticket>().HasOne<SupportModule>().WithMany().HasForeignKey(x => x.ModuleId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<GuestSubmission>().HasOne<SupportModule>().WithMany().HasForeignKey(x => x.ModuleId).OnDelete(DeleteBehavior.Restrict);
+        model.Entity<ChatConversation>().HasOne<SupportModule>().WithMany().HasForeignKey(x => x.ModuleId).OnDelete(DeleteBehavior.Restrict);
+        var categoryNames = new[] { "General", "Soporte técnico", "Facturación", "Accesos", "Servicios" };
+        for (var i = 0; i < categoryNames.Length; i++) {
+            var id = Guid.Parse($"c1000000-0000-0000-0000-{i + 1:000000000000}");
+            model.Entity<SupportCategory>().HasData(new SupportCategory { Id = id, Name = categoryNames[i] });
+            model.Entity<SupportModule>().HasData(new SupportModule { Id = Guid.Parse($"d1000000-0000-0000-0000-{i + 1:000000000000}"), CategoryId = id, Name = "General" });
+        }
         model.Entity<PortalLoginAttempt>(e => {
             e.ToTable("ExternalLoginAttempts", "identity");
             e.Property(x => x.Provider).HasMaxLength(20);

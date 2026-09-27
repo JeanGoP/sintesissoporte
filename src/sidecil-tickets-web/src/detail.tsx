@@ -1,3 +1,4 @@
+import { ClassifyTicket } from "./classify-ticket";
 import { backendUrl } from "./backend";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -128,7 +129,8 @@ export function DetailPage({ user }: { user: User }) {
       </div>
       <div className="detail-heading">
         <span className="eyebrow">
-          {t.number} <span className="dot-separator">/</span> {t.category}
+          {t.number} <span className="dot-separator">/</span> {t.category} ·{" "}
+          {t.module || "Sin módulo: pendiente de clasificación"}
         </span>
         <h1>{t.subject}</h1>
         <div className="detail-badges">
@@ -307,6 +309,17 @@ export function DetailPage({ user }: { user: User }) {
           </section>
           <section className="context-card">
             <h3>Detalles de atención</h3>
+            <p>
+              {t.category} / {t.module || "Sin módulo"}
+            </p>
+            {user.role === "Admin" && directory.data && (
+              <ClassifyTicket
+                ticket={t}
+                directory={directory.data}
+                busy={busy}
+                save={(body) => mutate("/classification", body, "PUT")}
+              />
+            )}
             <label className="field-label">Responsable</label>
             {staff ? (
               <select
@@ -322,12 +335,21 @@ export function DetailPage({ user }: { user: User }) {
                   )
                 }
               >
-                <option value="">Sin asignar</option>
-                {directory.data?.agents?.map((a) => (
-                  <option value={a.id} key={a.id}>
-                    {a.displayName}
-                  </option>
-                ))}
+                <option value="" disabled={user.role !== "Admin"}>
+                  Sin asignar
+                </option>
+                {directory.data?.agents
+                  ?.filter(
+                    (a) =>
+                      (a.role === "Admin" ||
+                        a.moduleIds?.includes(t.moduleId || "")) &&
+                      (user.role === "Admin" || a.id === user.id),
+                  )
+                  .map((a) => (
+                    <option value={a.id} key={a.id}>
+                      {a.displayName}
+                    </option>
+                  ))}
               </select>
             ) : (
               <p>Equipo de atención Sidecil</p>

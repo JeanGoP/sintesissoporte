@@ -13,8 +13,8 @@ public sealed class EmailEndpoints
 {
     public static async Task<IResult> SubmitAsync(GuestTicketRequest request, TicketsDbContext db, EmailComposer composer, IOptions<MailOptions> options, IReadOnlyList<GuestAttachment>? files = null) {
             if (options.Value.Mode == "Disabled") return Results.Problem("La recepción de solicitudes sin cuenta no está habilitada.", statusCode: 503);
-            if (!new[] { "General", "Soporte técnico", "Facturación", "Accesos", "Servicios" }.Contains(request.Category))
-                return Results.Problem("Categoría inválida.", statusCode: 400);
+            if (await SupportCatalog.Resolve(db, request.ModuleId, request.Category) == null || !SupportCatalog.ValidCompany(request.CompanyName))
+                return Results.Problem("Indica tu empresa y selecciona un módulo activo de la categoría.", statusCode: 400);
             var now = DateTime.UtcNow;
             var email = request.Email.Trim().ToLowerInvariant();
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -23,7 +23,7 @@ public sealed class EmailEndpoints
             var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             var pending = new GuestSubmission {
                 TokenHash = EmailComposer.Hash(token), Name = request.Name.Trim(), Email = email,
-                Subject = request.Subject.Trim(), Body = request.Body.Trim(), Category = request.Category, ExpiresAt = now.AddHours(24)
+                Subject = request.Subject.Trim(), Body = request.Body.Trim(), Category = request.Category, ModuleId = request.ModuleId, CompanyName = request.CompanyName!.Trim(), ExpiresAt = now.AddHours(24)
             };
             db.GuestSubmissions.Add(pending);
             if (files is not null) foreach (var file in files) { file.GuestSubmissionId = pending.Id; db.GuestAttachments.Add(file); }
@@ -38,9 +38,10 @@ public sealed class EmailEndpoints
     }
     public static void Map(WebApplication app)
     {
-        app.MapGet("/api/v1/public/config", (IOptions<MailOptions> options) => Results.Ok(new {
+        app.MapGet("/api/v1/public/config", async (IOptions<MailOptions> options, TicketsDbContext db) => Results.Ok(new {
             available = options.Value.Mode != "Disabled", testMode = options.Value.Mode == "Pickup",
-            categories = new[] { "General", "Soporte técnico", "Facturación", "Accesos", "Servicios" }
+            categories = await db.SupportCategories.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>x.Name).ToListAsync(),
+            modules = await (from m in SupportCatalog.Active(db) join cat in db.SupportCategories on m.CategoryId equals cat.Id select new { m.Id, m.Name, category=cat.Name }).ToListAsync()
         }));
         app.MapPost("/api/v1/public/tickets", (GuestTicketRequest request, TicketsDbContext db, EmailComposer composer, IOptions<MailOptions> options) => SubmitAsync(request, db, composer, options)).AddEndpointFilter<ValidationFilter>().RequireRateLimiting("guest");
         app.MapPost("/api/v1/public/tickets/with-attachments", GuestFileIntake.SubmitAsync).RequireRateLimiting("guest");
@@ -54,7 +55,7 @@ public sealed class EmailEndpoints
             var team = await db.Teams.OrderBy(x => x.Name).FirstOrDefaultAsync();
             if (team is null) return Results.Problem("No hay equipo de atención disponible.", statusCode: 409);
             var ticket = new Ticket {
-                Subject = pending.Subject, Category = pending.Category, GuestName = pending.Name, GuestEmail = pending.Email,
+                Subject = pending.Subject, Category = pending.Category, ModuleId = pending.ModuleId, CompanyName = pending.CompanyName, GuestName = pending.Name, GuestEmail = pending.Email,
                 OrganizationId = TicketsDbContext.GuestOrganizationId, TeamId = team.Id, Priority = TicketPriority.Normal,
                 DueAt = DateTime.UtcNow.AddHours(Ticket.TargetHours(TicketPriority.Normal))
             };

@@ -10,6 +10,8 @@ public sealed class Ticket
     public Guid PublicId { get; set; } = Guid.NewGuid();
     public string Subject { get; set; } = "";
     public string Category { get; set; } = "General";
+    public Guid? ModuleId { get; set; }
+    public string? CompanyName { get; set; }
     public Guid OrganizationId { get; set; }
     public Guid TeamId { get; set; }
     public string? RequesterId { get; set; }

@@ -32,7 +32,7 @@ public sealed partial class PortalOidcTests
             var f = new MultipartFormDataContent();
             f.Add(new StringContent("Problema con inventario"), "subject");
             f.Add(new StringContent("Descripción suficiente del problema"), "body");
-            f.Add(new StringContent("General"), "category"); f.Add(new StringContent("Normal"), "priority");
+            f.Add(new StringContent("General"), "category"); f.Add(new StringContent("d1000000-0000-0000-0000-000000000001"), "moduleId"); f.Add(new StringContent("Empresa de prueba"), "companyName"); f.Add(new StringContent("Normal"), "priority");
             for (int i = 0; i < count; i++) f.Add(new ByteArrayContent(bytes), "files", name);
             return f;
         }

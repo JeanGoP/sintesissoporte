@@ -98,10 +98,10 @@ public static class ChatIdentity
             ticket.UpdatedAt = DateTime.UtcNow; ticket.HasCustomerReply = true;
             if (ticket.Status == TicketStatus.WaitingRequester) ticket.Status = TicketStatus.InProgress;
         } else {
-            if (s.Subject.Length < 5 || s.Module.Length < 2) return Results.Problem("Completa el módulo y el asunto.", statusCode: 400);
+            if (s.Subject.Length < 5 || await SupportCatalog.Resolve(db, s.ModuleId, s.Category) == null || !SupportCatalog.ValidCompany(s.CompanyName)) return Results.Problem("Completa la empresa, categoría, módulo y asunto.", statusCode: 400);
             var team = await db.Teams.OrderBy(t => t.Name).FirstOrDefaultAsync();
             if (team == null) return Results.Conflict();
-            ticket = new Ticket { Subject = s.Subject, Category = s.Category, RequesterId = user?.Id, GuestName = user == null ? s.Name : null,
+            ticket = new Ticket { Subject = s.Subject, Category = s.Category, ModuleId = s.ModuleId, CompanyName = s.CompanyName, RequesterId = user?.Id, GuestName = user == null ? s.Name : null,
                 GuestEmail = user == null ? s.Email : null, OrganizationId = user?.OrganizationId ?? TicketsDbContext.GuestOrganizationId,
                 TeamId = team.Id, Priority = TicketPriority.Normal, DueAt = DateTime.UtcNow.AddHours(24) };
             db.Tickets.Add(ticket);

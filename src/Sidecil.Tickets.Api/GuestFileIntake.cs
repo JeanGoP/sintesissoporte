@@ -19,7 +19,7 @@ public static class GuestFileIntake
         if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = maxRequest;
         try {
             var form = await http.Request.ReadFormAsync(new FormOptions { MemoryBufferThreshold = ChatRules.MaxFileBytes, MultipartBodyLengthLimit = ChatRules.MaxFileBytes, ValueLengthLimit = 16000, ValueCountLimit = 10 }, http.RequestAborted);
-            var request = new GuestTicketRequest(form["name"].ToString(), form["email"].ToString(), form["subject"].ToString(), form["body"].ToString(), form["category"].ToString());
+            var request = new GuestTicketRequest(form["name"].ToString(), form["email"].ToString(), form["subject"].ToString(), form["body"].ToString(), form["category"].ToString(), Guid.TryParse(form["moduleId"], out var moduleId) ? moduleId : null, form["companyName"].ToString());
             if (!Validator.TryValidateObject(request, new ValidationContext(request), new List<ValidationResult>(), true)) return Bad("Revisa tu nombre, correo, asunto y descripción.");
             if (form.Files.Count > ChatRules.MaxFiles) return Bad("Puedes adjuntar hasta 3 archivos.");
             var files = new List<GuestAttachment>();

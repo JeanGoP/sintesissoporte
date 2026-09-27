@@ -1,3 +1,4 @@
+import { SupportFields } from "./support-fields";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -221,6 +222,14 @@ export function InboxPage({
               </button>
             </>
           )}
+          {user.role === "Admin" && (
+            <button
+              className={view === "needs-routing" ? "active" : ""}
+              onClick={() => filter(setView, "needs-routing")}
+            >
+              Por configurar
+            </button>
+          )}
           <button
             className={view === "overdue" ? "active" : ""}
             onClick={() => filter(setView, "overdue")}
@@ -297,7 +306,9 @@ export function InboxPage({
                         <span className="ticket-meta">
                           <span>{t.number}</span>
                           <span>·</span>
-                          <span>{t.category}</span>
+                          <span>
+                            {t.category} · {t.module || "Sin módulo"}
+                          </span>
                         </span>
                         <strong>{t.subject}</strong>
                         <span className="ticket-date">
@@ -415,6 +426,9 @@ export function CreateDialog({
     [subject, setSubject] = useState(""),
     [body, setBody] = useState(""),
     [category, setCategory] = useState("General"),
+    [moduleId, setModuleId] = useState(""),
+    [companyName, setCompanyName] = useState(""),
+    [organizationId, setOrganizationId] = useState(""),
     [files, setFiles] = useState<File[]>([]),
     [priority, setPriority] = useState<Priority>("Normal"),
     [busy, setBusy] = useState(false),
@@ -428,10 +442,14 @@ export function CreateDialog({
     setBusy(true);
     setError(undefined);
     try {
+      if (!moduleId) throw new Error("Selecciona un módulo.");
       const form = new FormData();
       form.set("subject", subject);
       form.set("body", body);
       form.set("category", category);
+      form.set("moduleId", moduleId);
+      form.set("companyName", companyName);
+      form.set("organizationId", organizationId);
       form.set("priority", priority);
       files.forEach((file) => form.append("files", file, file.name));
       const r = await api<{ id: string }>(
@@ -440,7 +458,15 @@ export function CreateDialog({
           method: "POST",
           body: files.length
             ? form
-            : JSON.stringify({ subject, body, category, priority }),
+            : JSON.stringify({
+                subject,
+                body,
+                category,
+                priority,
+                moduleId: moduleId || null,
+                companyName,
+                organizationId: organizationId || null,
+              }),
         },
       );
       await client.invalidateQueries({ queryKey: ["tickets"] });
@@ -483,19 +509,22 @@ export function CreateDialog({
               onChange={(e) => setSubject(e.target.value)}
             />
             <div className="form-row">
-              <TextField
-                select
-                fullWidth
-                label="Categoría"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                {(directory.data?.categories || ["General"]).map((x) => (
-                  <MenuItem value={x} key={x}>
-                    {x}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <SupportFields
+                categories={directory.data?.categories || []}
+                modules={directory.data?.modules || []}
+                category={category}
+                moduleId={moduleId}
+                companyName={companyName}
+                organizations={directory.data?.organizations || []}
+                organizationId={organizationId}
+                disabled={busy}
+                onChange={(v) => {
+                  setCategory(v.category);
+                  setModuleId(v.moduleId);
+                  setCompanyName(v.companyName);
+                  setOrganizationId(v.organizationId || "");
+                }}
+              />
               <TextField
                 select
                 fullWidth

@@ -13,7 +13,7 @@ public record ChatDraftRequest(
     [property: Required(AllowEmptyStrings = true), StringLength(120)] string Module,
     [property: Required(AllowEmptyStrings = true), StringLength(180)] string Subject,
     [property: Required(AllowEmptyStrings = true), StringLength(8000)] string Body,
-    [property: Required, StringLength(60)] string Category);
+    [property: Required, StringLength(60)] string Category, Guid? ModuleId = null, string? CompanyName = null);
 
 public static class ChatRules
 {

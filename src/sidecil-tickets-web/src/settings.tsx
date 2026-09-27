@@ -1,3 +1,4 @@
+import { CatalogAdmin, UserScopeEditor } from "./catalog-admin";
 import { ExternalConnections } from "./external-login";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +28,7 @@ export function AdminPage() {
     [role, setRole] = useState("Requester"),
     [org, setOrg] = useState(""),
     [team, setTeam] = useState(""),
+    [moduleIds, setModuleIds] = useState<string[]>([]),
     [orgName, setOrgName] = useState(""),
     [error, setError] = useState<unknown>(),
     [busy, setBusy] = useState(false);
@@ -43,6 +45,7 @@ export function AdminPage() {
           role,
           organizationId: org,
           teamId: team || null,
+          moduleIds: role === "Agent" ? moduleIds : [],
         }),
       });
       setOpen(false);
@@ -106,6 +109,7 @@ export function AdminPage() {
                 <th>Correo electrónico</th>
                 <th>Rol</th>
                 <th>Invitación</th>
+                <th>Acceso</th>
               </tr>
             </thead>
             <tbody>
@@ -155,12 +159,22 @@ export function AdminPage() {
                       "Activada"
                     )}
                   </td>
+                  <td>
+                    {directory.data && (
+                      <UserScopeEditor
+                        user={u}
+                        directory={directory.data}
+                        onSaved={() => void directory.refetch()}
+                      />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </section>
+      <CatalogAdmin />
       <Dialog
         open={open}
         onClose={() => !busy && setOpen(false)}
@@ -223,6 +237,28 @@ export function AdminPage() {
                   {directory.data?.teams?.map((t) => (
                     <MenuItem key={t.id} value={t.id}>
                       {t.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+              {role === "Agent" && (
+                <TextField
+                  select
+                  required
+                  label="Módulos del agente"
+                  SelectProps={{ multiple: true }}
+                  value={moduleIds}
+                  onChange={(e) =>
+                    setModuleIds(
+                      typeof e.target.value === "string"
+                        ? e.target.value.split(",")
+                        : e.target.value,
+                    )
+                  }
+                >
+                  {directory.data?.modules?.map((m) => (
+                    <MenuItem key={m.id} value={m.id}>
+                      {m.category} / {m.name}
                     </MenuItem>
                   ))}
                 </TextField>

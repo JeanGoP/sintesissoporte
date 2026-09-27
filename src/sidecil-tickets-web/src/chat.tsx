@@ -1,3 +1,4 @@
+import { SupportFields } from "./support-fields";
 import { api, refreshCsrf, statuses, type Status } from "./api";
 import { backendUrl } from "./backend";
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +18,8 @@ type Draft = {
   name: string;
   email: string;
   module: string;
+  moduleId: string;
+  companyName: string;
   subject: string;
   body: string;
   category: string;
@@ -40,6 +43,8 @@ const empty: Draft = {
   name: "",
   email: "",
   module: "",
+  moduleId: "",
+  companyName: "",
   subject: "",
   body: "",
   category: "General",
@@ -67,7 +72,7 @@ const questions: {
   },
   {
     key: "module",
-    text: "¿En qué módulo o parte del sistema necesitas ayuda?",
+    text: "¿Para qué empresa, categoría y módulo necesitas soporte?",
     label: "Módulo o pantalla",
     min: 2,
     max: 120,
@@ -98,6 +103,8 @@ export function ChatWidget() {
     name: string;
     available: boolean;
     testMode: boolean;
+    categories: string[];
+    modules: import("./api").SupportModule[];
   }>();
   const [session, setSession] = useState<Session>();
   const [draft, setDraft] = useState<Draft>({ ...empty });
@@ -155,7 +162,11 @@ export function ChatWidget() {
   function apply(data: Snapshot) {
     setVerified(data.verified);
     setCodeSent(data.codeSent);
-    setDraft(data);
+    setDraft({
+      ...data,
+      moduleId: data.moduleId || "",
+      companyName: data.companyName || "",
+    });
     setStep(nextStep(data));
     setFiles(data.attachments);
     setSubmitted(data.submitted);
@@ -287,7 +298,10 @@ export function ChatWidget() {
   async function save() {
     await request(
       "/sessions/" + session!.id + "/draft",
-      { method: "PUT", body: JSON.stringify(draft) },
+      {
+        method: "PUT",
+        body: JSON.stringify({ ...draft, moduleId: draft.moduleId || null }),
+      },
       session,
     );
   }
@@ -543,27 +557,47 @@ export function ChatWidget() {
                   });
                 }}
               >
-                <TextField
-                  key={question.key}
-                  autoFocus
-                  fullWidth
-                  required
-                  label={question.label}
-                  type={question.key === "email" ? "email" : "text"}
-                  multiline={question.key === "body"}
-                  minRows={question.key === "body" ? 4 : undefined}
-                  value={draft[question.key]}
-                  onChange={(e) =>
-                    setDraft({ ...draft, [question.key]: e.target.value })
-                  }
-                  slotProps={{
-                    htmlInput: {
-                      minLength: question.min,
-                      maxLength: question.max,
-                    },
-                  }}
-                  disabled={busy}
-                />
+                {question.key === "module" ? (
+                  <SupportFields
+                    categories={config?.categories || []}
+                    modules={config?.modules || []}
+                    category={draft.category}
+                    moduleId={draft.moduleId}
+                    companyName={draft.companyName}
+                    disabled={busy}
+                    onChange={(v) =>
+                      setDraft({
+                        ...draft,
+                        ...v,
+                        module:
+                          config?.modules?.find((m) => m.id === v.moduleId)
+                            ?.name || "",
+                      })
+                    }
+                  />
+                ) : (
+                  <TextField
+                    key={question.key}
+                    autoFocus
+                    fullWidth
+                    required
+                    label={question.label}
+                    type={question.key === "email" ? "email" : "text"}
+                    multiline={question.key === "body"}
+                    minRows={question.key === "body" ? 4 : undefined}
+                    value={draft[question.key]}
+                    onChange={(e) =>
+                      setDraft({ ...draft, [question.key]: e.target.value })
+                    }
+                    slotProps={{
+                      htmlInput: {
+                        minLength: question.min,
+                        maxLength: question.max,
+                      },
+                    }}
+                    disabled={busy}
+                  />
+                )}
                 <div className="chat-actions">
                   {step > (verified ? 2 : 0) && !selected && (
                     <Button disabled={busy} onClick={() => setStep(step - 1)}>
@@ -605,28 +639,12 @@ export function ChatWidget() {
                   <dt>Descripción</dt>
                   <dd>{draft.body}</dd>
                 </dl>
-                <TextField
-                  select
-                  fullWidth
-                  label="Categoría"
-                  value={draft.category}
-                  disabled={busy}
-                  onChange={(e) =>
-                    setDraft({ ...draft, category: e.target.value })
-                  }
-                >
-                  {[
-                    "General",
-                    "Soporte técnico",
-                    "Facturación",
-                    "Accesos",
-                    "Servicios",
-                  ].map((x) => (
-                    <MenuItem key={x} value={x}>
-                      {x}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                {!selected && (
+                  <p>
+                    Empresa: {draft.companyName} · Categoría: {draft.category} ·
+                    Módulo: {draft.module}
+                  </p>
+                )}
                 <div className="chat-files">
                   <h3>Archivos de soporte</h3>
                   <p>Hasta 3 archivos de 5 MB: PNG, JPG, PDF o TXT.</p>

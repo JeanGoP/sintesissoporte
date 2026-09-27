@@ -51,7 +51,7 @@ public sealed partial class PortalOidcTests
             var session = await started.Content.ReadFromJsonAsync<JsonElement>();
             string path = "/api/v1/chat/sessions/" + session.GetProperty("id").GetString();
             client.DefaultRequestHeaders.Authorization = new("Bearer", session.GetProperty("token").GetString());
-            var draft = new { name = "Cliente", email, module = "Ventas", subject = "Problema de prueba", body = "Este es mi mensaje de seguimiento", category = "General" };
+            var draft = new { name = "Cliente", email, module = "Ventas", subject = "Problema de prueba", body = "Este es mi mensaje de seguimiento", category = "General", moduleId = "d1000000-0000-0000-0000-000000000001", companyName = "Empresa de prueba" };
             (await client.PutAsJsonAsync(path + "/draft", draft)).EnsureSuccessStatusCode();
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path + "/tickets")).StatusCode);
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync(path + "/send", new { ticketId = own })).StatusCode);

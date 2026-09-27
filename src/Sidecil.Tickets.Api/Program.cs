@@ -130,6 +130,7 @@ app.Use(async (context, next) => {
     }
     await next();
 });
+SupportCatalog.Map(app);
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }));
 app.MapGet("/health/ready", async (TicketsDbContext db) =>
     await db.Database.CanConnectAsync() ? Results.Ok(new { status = "ready" }) : Results.StatusCode(503));
@@ -165,6 +166,7 @@ api.MapPost("/tickets", (CreateTicketRequest r, HttpContext c, TicketService s) 
 api.MapPost("/tickets/{id:guid}/messages", (Guid id, AddMessageRequest r, HttpContext c, TicketService s) => s.MessageAsync(c, id, r));
 api.MapPost("/tickets/{id:guid}/transitions", (Guid id, TransitionRequest r, HttpContext c, TicketService s) => s.TransitionAsync(c, id, r));
 api.MapPut("/tickets/{id:guid}/assignment", (Guid id, AssignmentRequest r, HttpContext c, TicketService s) => s.AssignAsync(c, id, r));
+api.MapPut("/tickets/{id:guid}/classification", (Guid id, ClassificationRequest r, HttpContext c, TicketService s) => s.ClassifyAsync(c, id, r));
 api.MapGet("/directory", (HttpContext c, TicketService s) => s.DirectoryAsync(c));
 api.MapPost("/admin/users", (CreateUserRequest r, HttpContext c, TicketService s) => s.CreateUserAsync(c, r));
 api.MapPost("/admin/organizations", (CreateOrganizationRequest r, HttpContext c, TicketService s) => s.CreateOrganizationAsync(c, r));

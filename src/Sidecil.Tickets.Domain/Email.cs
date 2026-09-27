@@ -55,6 +55,8 @@ public sealed class GuestSubmission
     public string Subject { get; set; } = "";
     public string Body { get; set; } = "";
     public string Category { get; set; } = "General";
+    public Guid? ModuleId { get; set; }
+    public string? CompanyName { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; set; }
     public long? TicketId { get; set; }

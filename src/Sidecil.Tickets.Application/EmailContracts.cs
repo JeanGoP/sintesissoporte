@@ -5,7 +5,7 @@ public record GuestTicketRequest(
     [property: Required, EmailAddress, StringLength(200)] string Email,
     [property: Required, StringLength(180, MinimumLength = 5)] string Subject,
     [property: Required, StringLength(12000, MinimumLength = 10)] string Body,
-    [property: Required, StringLength(60)] string Category);
+    [property: Required, StringLength(60)] string Category, Guid? ModuleId = null, string? CompanyName = null, Guid? OrganizationId = null);
 public record ConfirmGuestRequest([property: Required, StringLength(100, MinimumLength = 40)] string Token);
 public record EmailTemplateRequest(
     [property: Required, StringLength(200, MinimumLength = 3)] string Subject,

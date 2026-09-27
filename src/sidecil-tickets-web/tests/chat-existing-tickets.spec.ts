@@ -20,7 +20,13 @@ test("El chat verifica una vez y permite continuar un ticket o crear otro", asyn
     const method = route.request().method();
     if (path.includes("/sites/"))
       return route.fulfill({
-        json: { name: "ERP prueba", available: true, testMode: false },
+        json: {
+          name: "ERP prueba",
+          available: true,
+          testMode: false,
+          categories: ["General"],
+          modules: [{ id: "module", name: "Inventario", category: "General" }],
+        },
       });
     if (path.endsWith("/sessions"))
       return route.fulfill({ json: { id: "session-1", token: "test-token" } });
@@ -103,7 +109,9 @@ test("El chat verifica una vez y permite continuar un ticket o crear otro", asyn
   await page
     .getByRole("button", { name: "Crear una nueva solicitud", exact: true })
     .click();
-  await page.getByLabel(/^Módulo o pantalla/).fill("Inventario");
+  await page.getByLabel(/^Nombre de la empresa/).fill("Empresa prueba");
+  await page.getByLabel(/^Módulo/).click();
+  await page.getByRole("option", { name: "Inventario", exact: true }).click();
   await page.getByRole("button", { name: "Continuar", exact: true }).click();
   await page
     .getByLabel(/^Asunto de la solicitud/)

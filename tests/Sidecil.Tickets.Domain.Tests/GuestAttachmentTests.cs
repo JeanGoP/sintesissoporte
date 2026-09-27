@@ -21,11 +21,11 @@ public sealed partial class PortalOidcTests
         using var app = factory.WithWebHostBuilder(b => b.UseSetting("Mail:Mode", "Pickup"));
         using var client = app.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
         var email = Guid.NewGuid() + "@test.invalid";
-        var request = new { name = "Cliente invitado", email, subject = "Problema de inventario", body = "Descripción del problema de inventario", category = "General" };
+        var request = new { name = "Cliente invitado", email, subject = "Problema de inventario", body = "Descripción del problema de inventario", category = "General", moduleId = "d1000000-0000-0000-0000-000000000001", companyName = "Empresa de prueba" };
         MultipartFormDataContent Form(string name) {
             var form = new MultipartFormDataContent();
             form.Add(new StringContent(request.name), "name"); form.Add(new StringContent(email), "email");
-            form.Add(new StringContent(request.subject), "subject"); form.Add(new StringContent(request.body), "body"); form.Add(new StringContent(request.category), "category");
+            form.Add(new StringContent(request.subject), "subject"); form.Add(new StringContent(request.body), "body"); form.Add(new StringContent(request.category), "category"); form.Add(new StringContent(request.moduleId), "moduleId"); form.Add(new StringContent(request.companyName), "companyName");
             form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("Evidencia de prueba")), "files", name); return form;
         }
         try {

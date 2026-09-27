@@ -23,6 +23,9 @@ export type Ticket = {
   number: string;
   subject: string;
   category: string;
+  moduleId?: string;
+  module?: string;
+  organizationId?: string;
   status: Status;
   priority: Priority;
   createdAt: string;
@@ -58,9 +61,19 @@ export type TicketDetail = Omit<Ticket, "requester"> & {
       }[]
     | null;
 };
+export type SupportModule = { id: string; name: string; category: string };
 export type Directory = {
+  modules: SupportModule[];
   categories: string[];
-  agents: { id: string; displayName: string; teamId: string | null }[] | null;
+  agents:
+    | {
+        id: string;
+        displayName: string;
+        teamId: string | null;
+        role: string;
+        moduleIds: string[];
+      }[]
+    | null;
   organizations: { id: string; name: string }[] | null;
   teams: { id: string; name: string }[] | null;
   users:
@@ -70,6 +83,9 @@ export type Directory = {
         email: string;
         role: string;
         invitationPending?: boolean;
+        moduleIds: string[];
+        organizationIds: string[];
+        organizationId: string;
       }[]
     | null;
 };

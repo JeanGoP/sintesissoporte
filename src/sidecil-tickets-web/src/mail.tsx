@@ -1,3 +1,4 @@
+import { SupportFields } from "./support-fields";
 import { Brand } from "./Brand";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +21,9 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
     [subject, setSubject] = useState(""),
     [body, setBody] = useState(""),
     [category, setCategory] = useState("General"),
+    [moduleId, setModuleId] = useState(""),
+    [companyName, setCompanyName] = useState(""),
+    [organizationId, setOrganizationId] = useState(""),
     [files, setFiles] = useState<File[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(),
@@ -35,6 +39,7 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
           available: boolean;
           testMode: boolean;
           categories: string[];
+          modules: import("./api").SupportModule[];
         }>("/public/config")
       ).data,
   });
@@ -55,12 +60,16 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
         );
         history.replaceState(null, "", location.pathname);
       } else {
+        if (!moduleId) throw new Error("Selecciona un módulo.");
         const form = new FormData();
         form.set("name", name);
         form.set("email", email);
         form.set("subject", subject);
         form.set("body", body);
         form.set("category", category);
+        form.set("moduleId", moduleId);
+        form.set("companyName", companyName);
+        form.set("organizationId", organizationId);
         files.forEach((file) => form.append("files", file, file.name));
         const result = await api<{ message: string }>(
           files.length ? "/public/tickets/with-attachments" : "/public/tickets",
@@ -68,7 +77,15 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
             method: "POST",
             body: files.length
               ? form
-              : JSON.stringify({ name, email, subject, body, category }),
+              : JSON.stringify({
+                  name,
+                  email,
+                  subject,
+                  body,
+                  category,
+                  moduleId: moduleId || null,
+                  companyName,
+                }),
           },
         );
         setSuccess(result.data.message);
@@ -153,18 +170,20 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                   onChange={(e) => setSubject(e.target.value)}
                   inputProps={{ minLength: 5, maxLength: 180 }}
                 />
-                <TextField
-                  select
-                  label="Categoría"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  {(config.data?.categories || ["General"]).map((x) => (
-                    <MenuItem key={x} value={x}>
-                      {x}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <SupportFields
+                  categories={config.data?.categories || []}
+                  modules={config.data?.modules || []}
+                  category={category}
+                  moduleId={moduleId}
+                  companyName={companyName}
+                  disabled={busy}
+                  onChange={(v) => {
+                    setCategory(v.category);
+                    setModuleId(v.moduleId);
+                    setCompanyName(v.companyName);
+                    setOrganizationId(v.organizationId || "");
+                  }}
+                />
                 <TextField
                   required
                   multiline

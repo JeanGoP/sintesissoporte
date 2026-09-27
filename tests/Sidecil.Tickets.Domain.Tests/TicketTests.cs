@@ -9,10 +9,10 @@ public sealed class TicketTests {
         Assert.False(AccessRules.CanAccess("Requester", "bob", organization, null, ticket));
         Assert.True(AccessRules.CanAccess("Requester", "alice", organization, null, ticket));
     }
-    [Fact] public void AgentCannotReadOtherTeamsTickets() {
-        var ticket = new Ticket { TeamId = Guid.NewGuid() };
+    [Fact] public void AgentNeedsExplicitModulePermission() {
+        var ticket = new Ticket { TeamId = Guid.NewGuid(), ModuleId = Guid.NewGuid() };
         Assert.False(AccessRules.CanAccess("Agent", "agent", Guid.NewGuid(), Guid.NewGuid(), ticket));
-        Assert.True(AccessRules.CanAccess("Agent", "agent", Guid.NewGuid(), ticket.TeamId, ticket));
+        Assert.True(AccessRules.CanAccess("Agent", "agent", Guid.NewGuid(), ticket.TeamId, ticket, new[] { ticket.ModuleId!.Value }));
     }
     [Theory] [InlineData("Requester", false)] [InlineData("Agent", true)] [InlineData("Admin", true)]
     public void InternalMessagesRequireStaff(string role, bool expected) =>

@@ -38,7 +38,7 @@ public sealed partial class PortalOidcTests
         }
         await Csrf(admin);
         await Csrf(guest);
-        var request = new { displayName = "Persona invitada", email, role, organizationId = TicketsDbContext.GuestOrganizationId, teamId = role == "Agent" ? (Guid?)team : null };
+        var request = new { displayName = "Persona invitada", email, role, organizationId = TicketsDbContext.GuestOrganizationId, teamId = role == "Agent" ? (Guid?)team : null, moduleIds = new[] { Guid.Parse("d1000000-0000-0000-0000-000000000001") } };
         Assert.Equal(HttpStatusCode.Unauthorized, (await guest.PostAsJsonAsync("/api/v1/admin/users", request)).StatusCode);
         var created = await admin.PostAsJsonAsync("/api/v1/admin/users", request);
         created.EnsureSuccessStatusCode();

@@ -44,7 +44,7 @@ public static class ChatEndpoints
         });
         chat.MapGet("/sites/{id:guid}", async (Guid id, TicketsDbContext db, IOptions<MailOptions> mail) => {
             var site = await db.ChatSites.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.Enabled);
-            return site is null ? Results.NotFound() : Results.Ok(new { site.Name, available = mail.Value.Mode != "Disabled", testMode = mail.Value.Mode == "Pickup" });
+            return site is null ? Results.NotFound() : Results.Ok(new { site.Name, categories = await db.SupportCategories.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>x.Name).ToListAsync(), modules = await (from m in SupportCatalog.Active(db) join cat in db.SupportCategories on m.CategoryId equals cat.Id select new { m.Id, m.Name, category=cat.Name }).ToListAsync(), available = mail.Value.Mode != "Disabled", testMode = mail.Value.Mode == "Pickup" });
         });
         chat.MapPost("/sessions", async (ChatStartRequest request, TicketsDbContext db, IOptions<MailOptions> mail) => {
             if (mail.Value.Mode == "Disabled") return Results.Problem("El canal de soporte todavía no está habilitado.", statusCode: 503);
@@ -82,18 +82,21 @@ public static class ChatEndpoints
                 ? (await db.GuestSubmissions.FindAsync(pendingId))?.TicketId : null;
             var attachments = await db.ChatAttachments.Where(x => x.ConversationId == session.Id)
                 .Select(x => new { x.Id, x.FileName, x.Length }).ToListAsync();
-            return Results.Ok(new { session.Name, session.Email, session.Module, session.Subject, session.Body, session.Category,
+            return Results.Ok(new { session.Name, session.Email, session.Module, session.Subject, session.Body, session.Category, session.ModuleId, session.CompanyName,
                 verified = ChatIdentity.Verified(session), codeSent = session.VerificationHash != null && session.VerificationExpiresAt > DateTime.UtcNow, submitted = session.GuestSubmissionId != null, number = ticketId is { } ticket ? EmailComposer.Number(ticket) : null, attachments });
         });
         sessions.MapPut("/draft", async (ChatDraftRequest request, HttpContext http, TicketsDbContext db) => {
             var session = Session(http);
             if (session.GuestSubmissionId != null) return Locked();
-            if (!ChatRules.Categories.Contains(request.Category)) return Results.BadRequest();
+            if (request.CompanyName?.Length > 120) return Results.BadRequest();
             var email = request.Email.Trim().ToLowerInvariant();
             if (ChatIdentity.Verified(session) && email != session.Email) return Results.Problem("Inicia otra sesión para cambiar de correo.", statusCode: 409);
             if (email != session.Email) { session.VerificationHash = null; session.VerificationExpiresAt = null; session.IdentityVerifiedAt = null; }
             session.Name = request.Name.Trim(); session.Email = email;
-            session.Module = request.Module.Trim(); session.Subject = request.Subject.Trim(); session.Body = request.Body.Trim(); session.Category = request.Category;
+            session.ModuleId = request.ModuleId; session.CompanyName = request.CompanyName?.Trim();
+            var module = request.ModuleId == null ? null : await SupportCatalog.Resolve(db, request.ModuleId, request.Category);
+            if (request.ModuleId != null && module == null) return Results.Problem("Selecciona un módulo activo de la categoría.", statusCode:400);
+            session.Module = module?.Name ?? ""; session.Subject = request.Subject.Trim(); session.Body = request.Body.Trim(); session.Category = request.Category;
             await db.SaveChangesAsync(); return Results.NoContent();
         });
         sessions.MapPost("/attachments", async (HttpContext http, TicketsDbContext db) => {
@@ -135,6 +138,7 @@ public static class ChatEndpoints
             if (options.Value.Mode == "Disabled") return Results.Problem("El canal de correo no está disponible.", statusCode: 503);
             if (session.Name.Length < 2 || !new EmailAddressAttribute().IsValid(session.Email) || session.Subject.Length < 5 || session.Body.Length < 10 || session.Module.Length < 2)
                 return Results.Problem("Completa tu nombre, correo, módulo, asunto y descripción antes de enviar.", statusCode: 400);
+            if (await SupportCatalog.Resolve(db, session.ModuleId, session.Category) == null || !SupportCatalog.ValidCompany(session.CompanyName)) return Results.Problem("Completa empresa, categoría y módulo.",statusCode:400);
             var site = await db.ChatSites.FindAsync(session.SiteId);
             var now = DateTime.UtcNow;
             if (await db.GuestSubmissions.CountAsync(x => x.Email == session.Email && x.CreatedAt > now.AddHours(-1)) >= 3)
@@ -142,7 +146,7 @@ public static class ChatEndpoints
             var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             var transcript = $"Solicitud recibida desde el chat de {site!.Name} ({site.Origin}).\n\nAsistente: ¿Cómo te llamas?\nCliente: {session.Name}\n\nAsistente: ¿Cuál es tu correo?\nCliente: {session.Email}\n\nAsistente: ¿En qué módulo necesitas ayuda?\nCliente: {session.Module}\n\nAsistente: Resume el problema.\nCliente: {session.Subject}\n\nAsistente: Cuéntanos qué ocurrió y qué esperabas que pasara.\nCliente: {session.Body}\n\nCategoría: {session.Category}\nEl cliente revisó y confirmó el resumen antes de enviarlo.";
             var pending = new GuestSubmission { TokenHash = EmailComposer.Hash(token), Name = session.Name, Email = session.Email,
-                Subject = session.Subject, Category = session.Category, Body = transcript, ExpiresAt = session.ExpiresAt };
+                Subject = session.Subject, Category = session.Category, ModuleId = session.ModuleId, CompanyName = session.CompanyName, Body = transcript, ExpiresAt = session.ExpiresAt };
             db.GuestSubmissions.Add(pending); session.GuestSubmissionId = pending.Id;
             var link = options.Value.PublicBaseUrl.TrimEnd('/') + "/confirmar-solicitud#token=" + token;
             mail.Queue(session.Email, "Confirma tu solicitud a Sidecil", "Hola " + session.Name + ",\n\nRecibimos tu solicitud desde el chat de " + site.Name + ".\n\nPara verificar tu correo y crear el ticket con la conversación y sus archivos, abre este enlace y pulsa Confirmar:\n" + link + "\n\nNo necesitas crear una cuenta. El enlace caduca en 24 horas desde el inicio del chat. Si no realizaste esta solicitud, ignora el mensaje.", "verify:" + pending.Id, "Verification", expires: pending.ExpiresAt);
