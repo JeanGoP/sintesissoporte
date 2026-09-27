@@ -1857,3 +1857,27 @@ button:focus-visible {
   font-size: 11px;
   margin-top: 5px;
 }
+
+/* Densidad de los maestros administrativos sin alterar la bandeja de tickets. */
+.admin-table th {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.admin-table td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  vertical-align: middle;
+}
+.admin-table .avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+}
+.admin-table .MuiButton-root {
+  min-height: 30px;
+  padding: 4px 8px;
+}
+.admin-table .badge {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}

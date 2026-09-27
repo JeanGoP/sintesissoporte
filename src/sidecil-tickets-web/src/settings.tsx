@@ -103,7 +103,7 @@ export function AdminPage() {
           </h2>
         </div>
         <div className="table-scroll">
-          <table className="tickets-table">
+          <table className="tickets-table admin-table">
             <thead>
               <tr>
                 <th>Persona</th>

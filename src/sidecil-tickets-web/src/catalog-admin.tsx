@@ -74,7 +74,7 @@ export function CatalogAdmin() {
       </p>
       <ErrorBox error={data.error} />
       <div className="table-scroll">
-        <table className="tickets-table">
+        <table className="tickets-table admin-table">
           <thead>
             <tr>
               <th>Categoría</th>
