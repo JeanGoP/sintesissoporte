@@ -16,6 +16,8 @@ import {
   Users,
   Clock3,
   TicketCheck,
+  Paperclip,
+  Trash2,
   RefreshCw,
   Search,
   ArrowUpRight,
@@ -413,6 +415,7 @@ export function CreateDialog({
     [subject, setSubject] = useState(""),
     [body, setBody] = useState(""),
     [category, setCategory] = useState("General"),
+    [files, setFiles] = useState<File[]>([]),
     [priority, setPriority] = useState<Priority>("Normal"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>();
@@ -425,11 +428,23 @@ export function CreateDialog({
     setBusy(true);
     setError(undefined);
     try {
-      const r = await api<{ id: string }>("/tickets", {
-        method: "POST",
-        body: JSON.stringify({ subject, body, category, priority }),
-      });
+      const form = new FormData();
+      form.set("subject", subject);
+      form.set("body", body);
+      form.set("category", category);
+      form.set("priority", priority);
+      files.forEach((file) => form.append("files", file, file.name));
+      const r = await api<{ id: string }>(
+        files.length ? "/tickets/with-attachments" : "/tickets",
+        {
+          method: "POST",
+          body: files.length
+            ? form
+            : JSON.stringify({ subject, body, category, priority }),
+        },
+      );
       await client.invalidateQueries({ queryKey: ["tickets"] });
+      setFiles([]);
       setSubject("");
       setBody("");
       onClose();
@@ -504,6 +519,74 @@ export function CreateDialog({
               value={body}
               onChange={(e) => setBody(e.target.value)}
             />
+            <section aria-label="Archivos de soporte">
+              <h3>Archivos de soporte</h3>
+              <p>Hasta 3 archivos de 5 MB: PNG, JPG, PDF o TXT.</p>
+              {files.map((file, index) => (
+                <div className="chat-file" key={index}>
+                  <Paperclip size={16} />
+                  <span>
+                    {file.name}
+                    <small>{(file.size / 1024).toFixed(1)} KB</small>
+                  </span>
+                  <Button
+                    aria-label={"Eliminar " + file.name}
+                    disabled={busy}
+                    onClick={() =>
+                      setFiles(files.filter((_, i) => i !== index))
+                    }
+                  >
+                    <Trash2 size={17} />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                component="label"
+                startIcon={<Paperclip size={16} />}
+                disabled={busy || files.length >= 3}
+              >
+                Adjuntar archivos
+                <input
+                  aria-label="Seleccionar archivos"
+                  type="file"
+                  hidden
+                  multiple
+                  accept=".png,.jpg,.jpeg,.pdf,.txt"
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.files || []);
+                    e.target.value = "";
+                    if (files.length + selected.length > 3) {
+                      setError(new Error("Puedes adjuntar hasta 3 archivos."));
+                      return;
+                    }
+                    if (
+                      selected.some(
+                        (f) => f.size === 0 || f.size > 5 * 1024 * 1024,
+                      )
+                    ) {
+                      setError(
+                        new Error(
+                          "Cada archivo debe pesar entre 1 byte y 5 MB.",
+                        ),
+                      );
+                      return;
+                    }
+                    if (
+                      selected.some(
+                        (f) => !/\.(png|jpe?g|pdf|txt)$/i.test(f.name),
+                      )
+                    ) {
+                      setError(
+                        new Error("Adjunta archivos PNG, JPG, PDF o TXT."),
+                      );
+                      return;
+                    }
+                    setFiles([...files, ...selected]);
+                    setError(undefined);
+                  }}
+                />
+              </Button>
+            </section>
             <ErrorBox error={error} />
           </div>
         </DialogContent>

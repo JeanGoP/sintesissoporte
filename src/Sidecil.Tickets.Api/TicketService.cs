@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Sidecil.Tickets.Application;
@@ -95,7 +97,8 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
                 join chat in db.ChatConversations on file.ConversationId equals chat.Id
                 join pending in db.GuestSubmissions on chat.GuestSubmissionId equals pending.Id
                 where pending.TicketId == ticket.Id
-                select new { file.Id, file.FileName, file.Length }).ToListAsync(),
+                select new { file.Id, file.FileName, file.Length })
+                .Concat(db.TicketAttachments.Where(file => file.TicketId == ticket.Id).Select(file => new { file.Id, file.FileName, file.Length })).ToListAsync(),
             messages, events, nextStatuses = staff ? Ticket.NextStatuses(ticket.Status) : []
         });
     }
@@ -105,6 +108,8 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         var actor = await Actor(c);
         var ticket = await Visible(actor).AsNoTracking().FirstOrDefaultAsync(x => x.PublicId == id);
         if (ticket is null) return Results.NotFound();
+        var direct = await db.TicketAttachments.AsNoTracking().FirstOrDefaultAsync(f => f.Id == fileId && f.TicketId == ticket.Id);
+        if (direct is not null) return Results.File(direct.Content, "application/octet-stream", direct.FileName);
         var file = await (from attachment in db.ChatAttachments.AsNoTracking()
             join chat in db.ChatConversations on attachment.ConversationId equals chat.Id
             join pending in db.GuestSubmissions on chat.GuestSubmissionId equals pending.Id
@@ -114,7 +119,38 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         return Results.File(file.Content, "application/octet-stream", file.FileName);
     }
 
-    public async Task<IResult> CreateAsync(HttpContext c, CreateTicketRequest request)
+    public async Task<IResult> CreateWithAttachmentsAsync(HttpContext c)
+    {
+        const long maxRequest = 16 * 1024 * 1024;
+        if (!c.Request.HasFormContentType) return Bad("Envía el formulario con sus archivos.");
+        if (c.Request.ContentLength > maxRequest) return Bad("Los archivos superan el tamaño permitido.", 413);
+        var limit = c.Features.Get<IHttpMaxRequestBodySizeFeature>();
+        if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = maxRequest;
+        try {
+            var form = await c.Request.ReadFormAsync(new FormOptions { MemoryBufferThreshold = ChatRules.MaxFileBytes, MultipartBodyLengthLimit = ChatRules.MaxFileBytes, ValueLengthLimit = 16000, ValueCountLimit = 10 }, c.RequestAborted);
+            if (!Enum.TryParse<TicketPriority>(form["priority"], out var priority)) return Bad("Prioridad inválida.");
+            var request = new CreateTicketRequest(form["subject"].ToString(), form["body"].ToString(), priority, form["category"].ToString());
+            var errors = new List<ValidationResult>();
+            if (!Validator.TryValidateObject(request, new ValidationContext(request), errors, true)) return Bad("Completa el asunto, descripción y categoría con valores válidos.");
+            if (form.Files.Count > ChatRules.MaxFiles) return Bad("Puedes adjuntar hasta 3 archivos.");
+            var files = new List<TicketAttachment>();
+            foreach (var file in form.Files) {
+                if (file.Length is <= 0 or > ChatRules.MaxFileBytes) return Bad("Cada archivo debe pesar entre 1 byte y 5 MB.", 413);
+                var name = ChatRules.SafeName(file.FileName);
+                if (string.IsNullOrWhiteSpace(name) || name.Length > 180) return Bad("El nombre del archivo no es válido o es demasiado largo.");
+                using var memory = new MemoryStream();
+                await file.CopyToAsync(memory, c.RequestAborted);
+                var content = memory.ToArray();
+                var type = ChatRules.FileType(name, content);
+                if (type is null) return Bad("Adjunta un PNG, JPG, PDF o TXT válido de hasta 5 MB.");
+                files.Add(new TicketAttachment { FileName = name, ContentType = type, Length = content.Length, Content = content });
+            }
+            return await CreateAsync(c, request, files);
+        } catch (InvalidDataException) { return Bad("No se pudo leer el formulario. Adjunta hasta 3 archivos de máximo 5 MB.", 413); }
+        catch (BadHttpRequestException ex) when (ex.StatusCode == 413) { return Bad("Los archivos superan el tamaño permitido.", 413); }
+    }
+
+    public async Task<IResult> CreateAsync(HttpContext c, CreateTicketRequest request, IReadOnlyList<TicketAttachment>? attachments = null)
     {
         if (!Enum.IsDefined(request.Priority) || !Categories.Contains(request.Category)) return Bad("Categoría o prioridad inválida.");
         var actor = await Actor(c);
@@ -131,6 +167,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
         await using var transaction = await db.Database.BeginTransactionAsync();
         db.Tickets.Add(ticket);
         await db.SaveChangesAsync();
+        if (attachments is not null) foreach (var file in attachments) { file.TicketId = ticket.Id; db.TicketAttachments.Add(file); }
         await mail.ReceiptAsync(ticket);
         await db.SaveChangesAsync();
         await transaction.CommitAsync();

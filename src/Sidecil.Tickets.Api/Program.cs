@@ -160,6 +160,7 @@ api.MapPost("/auth/password", async (ChangePasswordRequest request, HttpContext 
 api.MapGet("/tickets", (HttpContext c, TicketService s, string? search, string? status, string? priority, string? view, int? page) =>
     s.ListAsync(c, search, status, priority, view, page ?? 1));
 api.MapGet("/tickets/{id:guid}", (Guid id, HttpContext c, TicketService s) => s.DetailAsync(c, id));
+api.MapPost("/tickets/with-attachments", (HttpContext c, TicketService s) => s.CreateWithAttachmentsAsync(c));
 api.MapPost("/tickets", (CreateTicketRequest r, HttpContext c, TicketService s) => s.CreateAsync(c, r));
 api.MapPost("/tickets/{id:guid}/messages", (Guid id, AddMessageRequest r, HttpContext c, TicketService s) => s.MessageAsync(c, id, r));
 api.MapPost("/tickets/{id:guid}/transitions", (Guid id, TransitionRequest r, HttpContext c, TicketService s) => s.TransitionAsync(c, id, r));

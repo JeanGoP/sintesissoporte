@@ -21,6 +21,7 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
     public DbSet<ChatSite> ChatSites => Set<ChatSite>();
     public DbSet<ChatConversation> ChatConversations => Set<ChatConversation>();
     public DbSet<ChatAttachment> ChatAttachments => Set<ChatAttachment>();
+    public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketMessage> Messages => Set<TicketMessage>();
     public DbSet<TicketEvent> Events => Set<TicketEvent>();
@@ -166,6 +167,12 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
             e.HasOne<Team>().WithMany().HasForeignKey(x => x.TeamId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.RequesterId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.AssigneeId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<TicketAttachment>(e => {
+            e.ToTable("Attachments", "tickets", t => t.HasCheckConstraint("CK_TicketAttachment_Size", "[Length] > 0 AND [Length] <= 5242880 AND DATALENGTH([Content]) = [Length]"));
+            e.Property(x => x.FileName).HasMaxLength(180);
+            e.Property(x => x.ContentType).HasMaxLength(80);
+            e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<TicketMessage>(e => {
             e.ToTable("Messages", "tickets");
