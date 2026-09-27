@@ -11,13 +11,7 @@ using Sidecil.Tickets.Infrastructure.Mail;
 namespace Sidecil.Tickets.Api;
 public sealed class EmailEndpoints
 {
-    public static void Map(WebApplication app)
-    {
-        app.MapGet("/api/v1/public/config", (IOptions<MailOptions> options) => Results.Ok(new {
-            available = options.Value.Mode != "Disabled", testMode = options.Value.Mode == "Pickup",
-            categories = new[] { "General", "Soporte técnico", "Facturación", "Accesos", "Servicios" }
-        }));
-        app.MapPost("/api/v1/public/tickets", async (GuestTicketRequest request, TicketsDbContext db, EmailComposer composer, IOptions<MailOptions> options) => {
+    public static async Task<IResult> SubmitAsync(GuestTicketRequest request, TicketsDbContext db, EmailComposer composer, IOptions<MailOptions> options, IReadOnlyList<GuestAttachment>? files = null) {
             if (options.Value.Mode == "Disabled") return Results.Problem("La recepción de solicitudes sin cuenta no está habilitada.", statusCode: 503);
             if (!new[] { "General", "Soporte técnico", "Facturación", "Accesos", "Servicios" }.Contains(request.Category))
                 return Results.Problem("Categoría inválida.", statusCode: 400);
@@ -25,13 +19,14 @@ public sealed class EmailEndpoints
             var email = request.Email.Trim().ToLowerInvariant();
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             if (await db.GuestSubmissions.CountAsync(x => x.Email == email && x.CreatedAt > now.AddHours(-1)) >= 3)
-                return Results.Accepted(value: new { message = "Revisa tu correo y confirma la solicitud. Si ya solicitaste varios enlaces, utiliza el más reciente." });
+                return files is { Count: > 0 } ? Results.Problem("Ya recibimos varias solicitudes para este correo. Espera una hora antes de enviar otra con archivos.", statusCode: 429) : Results.Accepted(value: new { message = "Revisa tu correo y confirma la solicitud. Si ya solicitaste varios enlaces, utiliza el más reciente." });
             var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
             var pending = new GuestSubmission {
                 TokenHash = EmailComposer.Hash(token), Name = request.Name.Trim(), Email = email,
                 Subject = request.Subject.Trim(), Body = request.Body.Trim(), Category = request.Category, ExpiresAt = now.AddHours(24)
             };
             db.GuestSubmissions.Add(pending);
+            if (files is not null) foreach (var file in files) { file.GuestSubmissionId = pending.Id; db.GuestAttachments.Add(file); }
             var link = options.Value.PublicBaseUrl.TrimEnd('/') + "/confirmar-solicitud#token=" + token;
             composer.Queue(email, "Confirma tu solicitud a Sidecil",
                 "Recibimos una solicitud de soporte asociada a esta dirección.\n\nPara verificar que el correo es tuyo y registrar el ticket, abre este enlace y pulsa Confirmar:\n" + link +
@@ -39,7 +34,17 @@ public sealed class EmailEndpoints
                 "verify:" + pending.Id, "Verification", expires: pending.ExpiresAt);
             await db.SaveChangesAsync(); await tx.CommitAsync();
             return Results.Accepted(value: new { message = "Revisa tu correo y confirma la solicitud. Luego recibirás tu número de ticket." });
-        }).AddEndpointFilter<ValidationFilter>().RequireRateLimiting("guest");
+
+    }
+    public static void Map(WebApplication app)
+    {
+        app.MapGet("/api/v1/public/config", (IOptions<MailOptions> options) => Results.Ok(new {
+            available = options.Value.Mode != "Disabled", testMode = options.Value.Mode == "Pickup",
+            categories = new[] { "General", "Soporte técnico", "Facturación", "Accesos", "Servicios" }
+        }));
+        app.MapPost("/api/v1/public/tickets", (GuestTicketRequest request, TicketsDbContext db, EmailComposer composer, IOptions<MailOptions> options) => SubmitAsync(request, db, composer, options)).AddEndpointFilter<ValidationFilter>().RequireRateLimiting("guest");
+        app.MapPost("/api/v1/public/tickets/with-attachments", GuestFileIntake.SubmitAsync).RequireRateLimiting("guest");
+
         app.MapPost("/api/v1/public/confirm", async (ConfirmGuestRequest request, TicketsDbContext db, EmailComposer composer) => {
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             var hash = EmailComposer.Hash(request.Token);
@@ -58,6 +63,9 @@ public sealed class EmailEndpoints
             ticket.Events.Add(new TicketEvent { ActorName = pending.Name, Kind = "Created", Detail = "Solicitud sin cuenta; correo confirmado." });
             db.Tickets.Add(ticket); await db.SaveChangesAsync();
             pending.TicketId = ticket.Id;
+            var files = await db.GuestAttachments.Where(f => f.GuestSubmissionId == pending.Id).ToListAsync();
+            foreach (var file in files) db.TicketAttachments.Add(new TicketAttachment { Id = file.Id, TicketId = ticket.Id, FileName = file.FileName, ContentType = file.ContentType, Length = file.Length, Content = file.Content });
+            db.GuestAttachments.RemoveRange(files);
             // Clear the draft after materializing the ticket; preserve token hash for idempotent confirmation.
             pending.Body = ""; pending.Subject = "";
             await composer.ReceiptAsync(ticket);

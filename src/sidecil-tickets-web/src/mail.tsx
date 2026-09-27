@@ -2,7 +2,15 @@ import { Brand } from "./Brand";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, TextField, MenuItem } from "@mui/material";
-import { Mail, Send, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-react";
+import {
+  Paperclip,
+  Trash2,
+  Mail,
+  Send,
+  CheckCircle2,
+  ArrowLeft,
+  RefreshCw,
+} from "lucide-react";
 import { api, date } from "./api";
 import { ErrorBox, Loading } from "./shared";
 
@@ -12,6 +20,7 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
     [subject, setSubject] = useState(""),
     [body, setBody] = useState(""),
     [category, setCategory] = useState("General"),
+    [files, setFiles] = useState<File[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(),
     [success, setSuccess] = useState(""),
@@ -46,11 +55,24 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
         );
         history.replaceState(null, "", location.pathname);
       } else {
-        const result = await api<{ message: string }>("/public/tickets", {
-          method: "POST",
-          body: JSON.stringify({ name, email, subject, body, category }),
-        });
+        const form = new FormData();
+        form.set("name", name);
+        form.set("email", email);
+        form.set("subject", subject);
+        form.set("body", body);
+        form.set("category", category);
+        files.forEach((file) => form.append("files", file, file.name));
+        const result = await api<{ message: string }>(
+          files.length ? "/public/tickets/with-attachments" : "/public/tickets",
+          {
+            method: "POST",
+            body: files.length
+              ? form
+              : JSON.stringify({ name, email, subject, body, category }),
+          },
+        );
         setSuccess(result.data.message);
+        setFiles([]);
       }
     } catch (e) {
       setError(e);
@@ -152,6 +174,76 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                   onChange={(e) => setBody(e.target.value)}
                   inputProps={{ minLength: 10, maxLength: 12000 }}
                 />
+                <section aria-label="Archivos de soporte">
+                  <h3>Archivos de soporte</h3>
+                  <p>Hasta 3 archivos de 5 MB: PNG, JPG, PDF o TXT.</p>
+                  {files.map((file, index) => (
+                    <div className="chat-file" key={index}>
+                      <Paperclip size={16} />
+                      <span>
+                        {file.name}
+                        <small>{(file.size / 1024).toFixed(1)} KB</small>
+                      </span>
+                      <Button
+                        aria-label={"Eliminar " + file.name}
+                        disabled={busy}
+                        onClick={() =>
+                          setFiles(files.filter((_, i) => i !== index))
+                        }
+                      >
+                        <Trash2 size={17} />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    component="label"
+                    disabled={busy || files.length >= 3}
+                    startIcon={<Paperclip size={16} />}
+                  >
+                    Adjuntar archivos
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      accept=".png,.jpg,.jpeg,.pdf,.txt"
+                      aria-label="Seleccionar archivos"
+                      onChange={(e) => {
+                        const selected = Array.from(e.target.files || []);
+                        e.target.value = "";
+                        if (files.length + selected.length > 3) {
+                          setError(
+                            new Error("Puedes adjuntar hasta 3 archivos."),
+                          );
+                          return;
+                        }
+                        if (
+                          selected.some(
+                            (f) => f.size === 0 || f.size > 5 * 1024 * 1024,
+                          )
+                        ) {
+                          setError(
+                            new Error(
+                              "Cada archivo debe pesar entre 1 byte y 5 MB.",
+                            ),
+                          );
+                          return;
+                        }
+                        if (
+                          selected.some(
+                            (f) => !/\.(png|jpe?g|pdf|txt)$/i.test(f.name),
+                          )
+                        ) {
+                          setError(
+                            new Error("Adjunta archivos PNG, JPG, PDF o TXT."),
+                          );
+                          return;
+                        }
+                        setFiles([...files, ...selected]);
+                        setError(undefined);
+                      }}
+                    />
+                  </Button>
+                </section>
                 <p className="small-note">
                   Te enviaremos un enlace de confirmación, válido por 24 horas.
                   Tu solicitud se registra cuando confirmas tu correo.

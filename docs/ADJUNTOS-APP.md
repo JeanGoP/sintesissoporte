@@ -17,3 +17,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Actualizar-BaseDeDatos
 Al terminar correctamente, iniciar ambos y desplegar main en Coolify. La migración se comprobó primero en SidecilTicketsDev; en producción se usa la conexión existente a SintesisCloudSoporte.
 
 Las pruebas validan contenido falso, exceso de archivos, tamaño máximo, creación atómica, consulta y descarga con permisos. El navegador comprueba selección y eliminación, envío multipart y conservación del formulario tras un error.
+
+## Formulario sin cuenta
+
+La pantalla /solicitar incluye Adjuntar archivos debajo de la descripción con los mismos límites. Antes de confirmar el correo, los archivos se guardan en communications.GuestAttachments y no tienen una ruta pública de descarga. La confirmación traslada los archivos a tickets.Attachments en la misma transacción que crea el ticket. Repetir la confirmación no duplica archivos ni tickets.
+
+El servicio de correo elimina los adjuntos pendientes cuya solicitud venció sin confirmarse, después de 24 horas. Los archivos de tickets confirmados se conservan. El despliegue requiere ejecutar Actualizar-BaseDeDatos.ps1 también para esta ampliación y actualizar el servicio de correo junto con la API.

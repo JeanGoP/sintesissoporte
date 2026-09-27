@@ -21,11 +21,15 @@ public sealed class OutboundDispatcher(TicketsDbContext db, IOptions<MailOptions
         message.Body = new TextPart("plain") { Text = mail.Body };
         return message;
     }
+    public Task<int> PurgeExpiredGuestAttachmentsAsync(CancellationToken ct = default) =>
+        db.GuestAttachments.Where(f => db.GuestSubmissions.Any(s => s.Id == f.GuestSubmissionId && s.TicketId == null && s.ExpiresAt < DateTime.UtcNow)).ExecuteDeleteAsync(ct);
+
     public async Task<int> DispatchAsync(CancellationToken ct = default)
     {
         var o = options.Value;
         if (o.Mode == "Disabled") return 0;
         var now = DateTime.UtcNow;
+        await PurgeExpiredGuestAttachmentsAsync(ct);
         var ids = await db.OutboundEmails.AsNoTracking()
             .Where(m => ((m.State == "Pending" && m.NextAttemptAt <= now) || (m.State == "Sending" && m.LeaseUntil < now)) && m.Attempts < 5)
             .OrderBy(m => m.CreatedAt).Select(m => m.Id).Take(20).ToListAsync(ct);

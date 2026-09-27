@@ -30,6 +30,7 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
     public DbSet<OutboundEmail> OutboundEmails => Set<OutboundEmail>();
     public DbSet<IncomingEmail> IncomingEmails => Set<IncomingEmail>();
+    public DbSet<GuestAttachment> GuestAttachments => Set<GuestAttachment>();
     public DbSet<GuestSubmission> GuestSubmissions => Set<GuestSubmission>();
     public DbSet<MailboxCursor> MailboxCursors => Set<MailboxCursor>();
     public static readonly Guid GuestOrganizationId = new("91563faf-00a3-49ac-b2d0-0e8c702f4d41");
@@ -127,6 +128,12 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
             e.Property(x => x.State).HasMaxLength(20);
             e.Property(x => x.Reason).HasMaxLength(500);
             e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<GuestAttachment>(e => {
+            e.ToTable("GuestAttachments", "communications", t => t.HasCheckConstraint("CK_GuestAttachment_Size", "[Length] > 0 AND [Length] <= 5242880 AND DATALENGTH([Content]) = [Length]"));
+            e.Property(x => x.FileName).HasMaxLength(180);
+            e.Property(x => x.ContentType).HasMaxLength(80);
+            e.HasOne<GuestSubmission>().WithMany().HasForeignKey(x => x.GuestSubmissionId).OnDelete(DeleteBehavior.Cascade);
         });
         model.Entity<GuestSubmission>(e => {
             e.ToTable("GuestSubmissions", "communications");
