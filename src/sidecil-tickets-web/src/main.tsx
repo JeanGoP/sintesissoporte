@@ -325,8 +325,9 @@ function Shell({ user }: { user: User }) {
             <span className="topbar-divider" />
             <span className="avatar small">{initials(user.displayName)}</span>
             <button
-              className="mobile-logout icon-button"
-              aria-label="Cerrar sesión móvil"
+              className="topbar-logout icon-button"
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
               onClick={logout}
             >
               <LogOut size={16} />

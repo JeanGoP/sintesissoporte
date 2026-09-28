@@ -79,6 +79,8 @@ svg {
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 20;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 .brand {
   width: 202px;
@@ -298,8 +300,8 @@ svg {
   height: 21px;
   border-left: 1px solid var(--line);
 }
-.mobile-logout {
-  display: none !important;
+.topbar-logout {
+  display: inline-flex;
 }
 main {
   padding: 36px 39px;
@@ -1406,9 +1408,6 @@ main {
   }
   .topbar-divider {
     display: none;
-  }
-  .mobile-logout {
-    display: inline-flex !important;
   }
   main {
     padding: 25px 17px;
