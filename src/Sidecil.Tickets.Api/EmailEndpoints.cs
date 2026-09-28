@@ -38,6 +38,7 @@ public sealed class EmailEndpoints
     }
     public static void Map(WebApplication app)
     {
+        PublicGuestAccessEndpoints.Map(app);
         app.MapGet("/api/v1/public/config", async (IOptions<MailOptions> options, TicketsDbContext db) => Results.Ok(new {
             available = options.Value.Mode != "Disabled", testMode = options.Value.Mode == "Pickup",
             categories = await db.SupportCategories.Where(x=>x.Enabled).OrderBy(x=>x.Name).Select(x=>x.Name).ToListAsync(),

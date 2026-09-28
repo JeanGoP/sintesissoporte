@@ -36,6 +36,7 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
     public DbSet<IncomingEmail> IncomingEmails => Set<IncomingEmail>();
     public DbSet<GuestAttachment> GuestAttachments => Set<GuestAttachment>();
     public DbSet<GuestSubmission> GuestSubmissions => Set<GuestSubmission>();
+    public DbSet<PublicGuestAccess> PublicGuestAccesses => Set<PublicGuestAccess>();
     public DbSet<MailboxCursor> MailboxCursors => Set<MailboxCursor>();
     public static readonly Guid GuestOrganizationId = new("91563faf-00a3-49ac-b2d0-0e8c702f4d41");
 
@@ -154,6 +155,15 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
             e.Property(x => x.FileName).HasMaxLength(180);
             e.Property(x => x.ContentType).HasMaxLength(80);
             e.HasOne<GuestSubmission>().WithMany().HasForeignKey(x => x.GuestSubmissionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<PublicGuestAccess>(e => {
+            e.ToTable("PublicGuestAccesses", "communications");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(120);
+            e.Property(x => x.Email).HasMaxLength(200);
+            e.HasIndex(x => new { x.Email, x.CreatedAt });
         });
         model.Entity<GuestSubmission>(e => {
             e.ToTable("GuestSubmissions", "communications");

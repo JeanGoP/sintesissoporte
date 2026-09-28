@@ -30,6 +30,7 @@ public sealed class OutboundDispatcher(TicketsDbContext db, IOptions<MailOptions
         if (o.Mode == "Disabled") return 0;
         var now = DateTime.UtcNow;
         await PurgeExpiredGuestAttachmentsAsync(ct);
+        await db.PublicGuestAccesses.Where(x => x.ExpiresAt < now.AddDays(-1)).ExecuteDeleteAsync(ct);
         var ids = await db.OutboundEmails.AsNoTracking()
             .Where(m => ((m.State == "Pending" && m.NextAttemptAt <= now) || (m.State == "Sending" && m.LeaseUntil < now)) && m.Attempts < 5)
             .OrderBy(m => m.CreatedAt).Select(m => m.Id).Take(20).ToListAsync(ct);

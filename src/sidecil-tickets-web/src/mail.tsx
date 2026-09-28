@@ -12,7 +12,7 @@ import {
   ArrowLeft,
   RefreshCw,
 } from "lucide-react";
-import { api, date } from "./api";
+import { api, date, statuses, type Status } from "./api";
 import { ErrorBox, Loading } from "./shared";
 
 export function GuestPage({ confirm = false }: { confirm?: boolean }) {
@@ -25,6 +25,8 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
     [companyName, setCompanyName] = useState(""),
     [organizationId, setOrganizationId] = useState(""),
     [files, setFiles] = useState<File[]>([]),
+    [accessToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get("access") || ""),
+    [choice, setChoice] = useState<"new" | string>(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(),
     [success, setSuccess] = useState(""),
@@ -43,6 +45,14 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
         }>("/public/config")
       ).data,
   });
+  const access = useQuery({
+    queryKey: ["public-access", accessToken],
+    enabled: !!accessToken && !confirm,
+    queryFn: async () => (await api<{name: string; email: string; tickets: {id: string; number: string; subject: string; status: string}[]}>("/public/access/tickets", {
+      method: "POST", body: JSON.stringify({ token: accessToken }), cache: "no-store",
+    })).data,
+    retry: false,
+  });
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -59,37 +69,31 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
             " está registrado. Recibirás la confirmación por correo y podrás responder directamente desde tu buzón.",
         );
         history.replaceState(null, "", location.pathname);
+      } else if (!accessToken) {
+        const result = await api<{message: string}>("/public/access/start", {
+          method: "POST", body: JSON.stringify({ name, email }),
+        });
+        setSuccess(result.data.message);
       } else {
-        if (!moduleId) throw new Error("Selecciona un módulo.");
+        if (!access.data || !choice) throw new Error("Verifica tu correo y elige un ticket o una nueva solicitud.");
+        if (choice === "new" && !moduleId) throw new Error("Selecciona un módulo.");
         const form = new FormData();
-        form.set("name", name);
-        form.set("email", email);
+        form.set("token", accessToken);
+        form.set("ticketId", choice === "new" ? "" : choice);
         form.set("subject", subject);
         form.set("body", body);
         form.set("category", category);
         form.set("moduleId", moduleId);
         form.set("companyName", companyName);
-        form.set("organizationId", organizationId);
         files.forEach((file) => form.append("files", file, file.name));
-        const result = await api<{ message: string }>(
-          files.length ? "/public/tickets/with-attachments" : "/public/tickets",
-          {
-            method: "POST",
-            body: files.length
-              ? form
-              : JSON.stringify({
-                  name,
-                  email,
-                  subject,
-                  body,
-                  category,
-                  moduleId: moduleId || null,
-                  companyName,
-                }),
-          },
-        );
-        setSuccess(result.data.message);
+        const result = await api<{number: string; existing: boolean}>("/public/access/send", {
+          method: "POST", body: form,
+        });
+        setSuccess(result.data.existing
+          ? "Tu mensaje se agregó al ticket " + result.data.number + ". El equipo podrá revisar tu información y archivos."
+          : "Tu ticket " + result.data.number + " está registrado. Recibirás la confirmación por correo.");
         setFiles([]);
+        history.replaceState(null, "", location.pathname);
       }
     } catch (e) {
       setError(e);
@@ -110,16 +114,15 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
         )}
         <span className="eyebrow">ATENCIÓN SIN COMPLICACIONES</span>
         <h1>
-          {confirm ? "Confirma tu solicitud." : "Cuéntanos qué necesitas."}
+          {confirm ? "Confirma tu solicitud." : accessToken ? "Continuemos tu solicitud." : "Verifica tu correo para comenzar."}
         </h1>
         <p className="form-note">
-          No necesitas crear una cuenta. Recibe tu número de ticket y conversa
-          con nuestro equipo por correo.
+          No necesitas crear una cuenta. Verifica tu correo para consultar tickets pendientes o crear uno nuevo.
         </p>
         {success ? (
           <div className="guest-success">
             <CheckCircle2 size={40} />
-            <h2>{confirm ? "Solicitud registrada" : "Revisa tu correo"}</h2>
+            <h2>{confirm || accessToken ? "Solicitud registrada" : "Revisa tu correo"}</h2>
             <p>{success}</p>
             <Button href="/">Ir al inicio</Button>
           </div>
@@ -140,29 +143,28 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                   Confirmar solicitud
                 </Button>
               </>
+            ) : !accessToken ? (
+              <>
+                {config.data && !config.data.available && <Alert severity="warning">Este canal aún no está habilitado.</Alert>}
+                <TextField label="Nombre completo" required value={name} onChange={e => setName(e.target.value)} inputProps={{ minLength: 2, maxLength: 120 }}/>
+                <TextField label="Correo electrónico" type="email" required value={email} onChange={e => setEmail(e.target.value)} inputProps={{ maxLength: 200 }}/>
+                <p className="small-note">Te enviaremos un enlace válido por una hora. Solo después de abrirlo mostraremos tus tickets pendientes.</p>
+                <Button variant="contained" type="submit" disabled={busy || !config.data?.available}>{busy ? "Enviando…" : "Enviar enlace de verificación"}</Button>
+              </>
+            ) : !access.data ? (
+              <>{access.isPending ? <Loading/> : <><Alert severity="error">El enlace no es válido o ya venció.</Alert><Button href="/solicitar">Solicitar otro enlace</Button></>}</>
+            ) : !choice ? (
+              <>
+                <Alert severity="success">Correo verificado: {access.data.email}</Alert>
+                <h2>¿Tu consulta corresponde a uno de estos tickets?</h2>
+                {access.data.tickets.length === 0 && <p>No tienes tickets pendientes.</p>}
+                {access.data.tickets.map(t => <Button key={t.id} onClick={() => setChoice(t.id)}>{t.number} · {t.subject} · {statuses[t.status as Status] || t.status}</Button>)}
+                <Button variant="contained" onClick={() => setChoice("new")}>Crear una nueva solicitud</Button>
+              </>
             ) : (
               <>
-                {config.data && !config.data.available && (
-                  <Alert severity="warning">
-                    Este canal aún no está habilitado. Contacta al equipo de
-                    Sidecil.
-                  </Alert>
-                )}
-                <TextField
-                  label="Nombre completo"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  inputProps={{ minLength: 2, maxLength: 120 }}
-                />
-                <TextField
-                  label="Correo electrónico"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  inputProps={{ maxLength: 200 }}
-                />
+                <Alert severity="info">{choice === "new" ? "Nueva solicitud" : "Agregar información a " + access.data.tickets.find(t => t.id === choice)?.number}</Alert>
+                {choice === "new" && <>
                 <TextField
                   label="Asunto"
                   required
@@ -184,6 +186,7 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                     setOrganizationId(v.organizationId || "");
                   }}
                 />
+                </>}
                 <TextField
                   required
                   multiline
@@ -264,8 +267,7 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                   </Button>
                 </section>
                 <p className="small-note">
-                  Te enviaremos un enlace de confirmación, válido por 24 horas.
-                  Tu solicitud se registra cuando confirmas tu correo.
+                  Tu correo ya está verificado. Tu mensaje y archivos se guardarán al enviar.
                 </p>
                 <Button
                   variant="contained"
@@ -273,7 +275,7 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                   disabled={busy || !config.data?.available}
                   endIcon={<Send size={16} />}
                 >
-                  {busy ? "Enviando…" : "Enviar solicitud"}
+                  {busy ? "Enviando…" : choice === "new" ? "Crear ticket" : "Enviar al ticket"}
                 </Button>
               </>
             )}
