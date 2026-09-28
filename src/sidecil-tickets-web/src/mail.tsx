@@ -25,7 +25,9 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
     [companyName, setCompanyName] = useState(""),
     [organizationId, setOrganizationId] = useState(""),
     [files, setFiles] = useState<File[]>([]),
-    [accessToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get("access") || ""),
+    [accessToken, setAccessToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get("access") || ""),
+    [codeSessionId, setCodeSessionId] = useState(""),
+    [code, setCode] = useState(""),
     [choice, setChoice] = useState<"new" | string>(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(),
@@ -69,11 +71,17 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
             " está registrado. Recibirás la confirmación por correo y podrás responder directamente desde tu buzón.",
         );
         history.replaceState(null, "", location.pathname);
-      } else if (!accessToken) {
-        const result = await api<{message: string}>("/public/access/start", {
+      } else if (!accessToken && !codeSessionId) {
+        const result = await api<{id: string}>("/public/access/start", {
           method: "POST", body: JSON.stringify({ name, email }),
         });
-        setSuccess(result.data.message);
+        setCodeSessionId(result.data.id);
+      } else if (!accessToken) {
+        const result = await api<{token: string}>("/public/access/verify", {
+          method: "POST", body: JSON.stringify({ id: codeSessionId, code }),
+        });
+        setAccessToken(result.data.token);
+        setCode("");
       } else {
         if (!access.data || !choice) throw new Error("Verifica tu correo y elige un ticket o una nueva solicitud.");
         if (choice === "new" && !moduleId) throw new Error("Selecciona un módulo.");
@@ -114,11 +122,9 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
         )}
         <span className="eyebrow">ATENCIÓN SIN COMPLICACIONES</span>
         <h1>
-          {confirm ? "Confirma tu solicitud." : accessToken ? "Continuemos tu solicitud." : "Verifica tu correo para comenzar."}
+          {confirm ? "Confirma tu solicitud." : accessToken ? "Continuemos tu solicitud." : codeSessionId ? "Escribe el código que te enviamos." : "Verifica tu correo para comenzar."}
         </h1>
-        <p className="form-note">
-          No necesitas crear una cuenta. Verifica tu correo para consultar tickets pendientes o crear uno nuevo.
-        </p>
+        <p className="form-note">No necesitas crear una cuenta. Verifica tu correo para consultar tickets pendientes o crear uno nuevo.</p>
         {success ? (
           <div className="guest-success">
             <CheckCircle2 size={40} />
@@ -143,16 +149,25 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                   Confirmar solicitud
                 </Button>
               </>
-            ) : !accessToken ? (
+            ) : !accessToken && !codeSessionId ? (
               <>
                 {config.data && !config.data.available && <Alert severity="warning">Este canal aún no está habilitado.</Alert>}
                 <TextField label="Nombre completo" required value={name} onChange={e => setName(e.target.value)} inputProps={{ minLength: 2, maxLength: 120 }}/>
                 <TextField label="Correo electrónico" type="email" required value={email} onChange={e => setEmail(e.target.value)} inputProps={{ maxLength: 200 }}/>
-                <p className="small-note">Te enviaremos un enlace válido por una hora. Solo después de abrirlo mostraremos tus tickets pendientes.</p>
-                <Button variant="contained" type="submit" disabled={busy || !config.data?.available}>{busy ? "Enviando…" : "Enviar enlace de verificación"}</Button>
+                <p className="small-note">Te enviaremos un código de 8 dígitos. Solo después de verificarlo mostraremos tus tickets pendientes.</p>
+                <Button variant="contained" type="submit" disabled={busy || !config.data?.available}>{busy ? "Enviando…" : "Enviar código"}</Button>
+              </>
+            ) : !accessToken ? (
+              <>
+                <Alert severity="info">Enviamos un código a {email}. Vence en 10 minutos. Revisa también la carpeta de spam.</Alert>
+                <TextField label="Código de 8 dígitos" required value={code}
+                  onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  inputProps={{ inputMode: "numeric", autoComplete: "one-time-code", pattern: "[0-9]{8}" }}/>
+                <Button variant="contained" type="submit" disabled={busy || code.length !== 8}>{busy ? "Verificando…" : "Verificar código"}</Button>
+                <Button type="button" disabled={busy} onClick={() => { setCodeSessionId(""); setCode(""); setError(undefined); }}>Corregir correo o solicitar otro código</Button>
               </>
             ) : !access.data ? (
-              <>{access.isPending ? <Loading/> : <><Alert severity="error">El enlace no es válido o ya venció.</Alert><Button href="/solicitar">Solicitar otro enlace</Button></>}</>
+              <>{access.isPending ? <Loading/> : <><Alert severity="error">La verificación venció. Solicita otro código.</Alert><Button href="/solicitar">Empezar de nuevo</Button></>}</>
             ) : !choice ? (
               <>
                 <Alert severity="success">Correo verificado: {access.data.email}</Alert>

@@ -13,6 +13,7 @@ namespace Sidecil.Tickets.Api;
 public record PublicAccessStart([property: Required, StringLength(120, MinimumLength = 2)] string Name,
     [property: Required, EmailAddress, StringLength(200)] string Email);
 public record PublicAccessToken([property: Required, StringLength(64, MinimumLength = 64)] string Token);
+public record PublicAccessCode(Guid Id, [property: Required, RegularExpression(@"^\d{8}$")] string Code);
 
 public static class PublicGuestAccessEndpoints
 {
@@ -20,7 +21,8 @@ public static class PublicGuestAccessEndpoints
     {
         if (token.Length != 64 || !token.All(Uri.IsHexDigit)) return null;
         var hash = EmailComposer.Hash(token);
-        return await db.PublicGuestAccesses.FirstOrDefaultAsync(x => x.TokenHash == hash && x.ExpiresAt > DateTime.UtcNow);
+        return await db.PublicGuestAccesses.FirstOrDefaultAsync(x => x.TokenHash == hash && x.ExpiresAt > DateTime.UtcNow &&
+            (x.VerifiedAt != null || x.VerificationExpiresAt == null));
     }
     private static IQueryable<Ticket> Owned(TicketsDbContext db, PublicGuestAccess session)
     {
@@ -38,17 +40,43 @@ public static class PublicGuestAccessEndpoints
             if (options.Value.Mode == "Disabled") return Bad("El correo no está disponible.", 503);
             var email = request.Email.Trim().ToLowerInvariant();
             var name = request.Name.Trim();
-            if (await db.PublicGuestAccesses.CountAsync(x => x.Email == email && x.CreatedAt > DateTime.UtcNow.AddHours(-1)) >= 3)
-                return Results.Accepted(value: new { message = "Si recibiste un enlace reciente, revísalo en tu correo." });
-            var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-            var session = new PublicGuestAccess { TokenHash = EmailComposer.Hash(token), Email = email, Name = name, ExpiresAt = DateTime.UtcNow.AddHours(1) };
+            var now = DateTime.UtcNow;
+            if (await db.PublicGuestAccesses.AnyAsync(x => x.Email == email && x.CreatedAt > now.AddMinutes(-1)) ||
+                await db.PublicGuestAccesses.CountAsync(x => x.Email == email && x.CreatedAt > now.AddHours(-1)) >= 3)
+                return Bad("Espera antes de solicitar otro código. Revisa tu correo y la carpeta de spam.", 429);
+            var code = RandomNumberGenerator.GetInt32(100000000).ToString("D8");
+            var session = new PublicGuestAccess { TokenHash = EmailComposer.Hash(Convert.ToHexString(RandomNumberGenerator.GetBytes(32))),
+                Email = email, Name = name, ExpiresAt = now.AddMinutes(10), VerificationExpiresAt = now.AddMinutes(10) };
+            session.VerificationHash = EmailComposer.Hash(session.Id + ":" + email + ":" + code);
             db.PublicGuestAccesses.Add(session);
-            var link = options.Value.PublicBaseUrl.TrimEnd('/') + "/solicitar#access=" + token;
-            mail.Queue(email, "Consulta tus tickets en Sidecil", "Hola " + name + ",\n\nAbre este enlace para consultar tus tickets pendientes o crear una solicitud nueva:\n" + link +
-                "\n\nVence en una hora. No lo compartas. Si no lo solicitaste, ignora este correo.", "public-access:" + session.Id, "PublicAccess", expires: session.ExpiresAt);
+            mail.Queue(email, "Código para consultar tus tickets en Sidecil", "Hola " + name + ",\n\nTu código es: " + code +
+                "\n\nEscríbelo en la página de Sidecil que tienes abierta para consultar tus tickets pendientes o crear una solicitud. Vence en 10 minutos. No lo compartas. Si no lo solicitaste, ignora este correo.",
+                "public-access:" + session.Id, "PublicAccess", expires: session.VerificationExpiresAt);
             await db.SaveChangesAsync();
-            return Results.Accepted(value: new { message = "Te enviamos un enlace para verificar tu correo. Revisa también la carpeta de spam." });
+            return Results.Accepted(value: new { session.Id, message = "Te enviamos un código de 8 dígitos. Revisa también la carpeta de spam." });
         }).AddEndpointFilter<ValidationFilter>().RequireRateLimiting("guest");
+
+        app.MapPost("/api/v1/public/access/verify", async (PublicAccessCode request, TicketsDbContext db) =>
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var session = await db.PublicGuestAccesses.FromSqlInterpolated($"SELECT * FROM [communications].[PublicGuestAccesses] WITH (UPDLOCK, ROWLOCK) WHERE [Id] = {request.Id}").SingleOrDefaultAsync();
+            if (session is null || session.VerificationHash is null || session.VerificationExpiresAt <= DateTime.UtcNow || session.VerificationAttempts >= 5)
+                return Bad("El código venció o agotó sus intentos. Solicita uno nuevo.");
+            session.VerificationAttempts++;
+            var expected = EmailComposer.Hash(session.Id + ":" + session.Email + ":" + request.Code);
+            var valid = CryptographicOperations.FixedTimeEquals(Convert.FromHexString(session.VerificationHash), Convert.FromHexString(expected));
+            if (!valid) {
+                await db.SaveChangesAsync(); await tx.CommitAsync();
+                return Bad("El código no coincide. Revisa el último correo recibido.");
+            }
+            var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            session.TokenHash = EmailComposer.Hash(token);
+            session.VerificationHash = null;
+            session.VerifiedAt = DateTime.UtcNow;
+            session.ExpiresAt = DateTime.UtcNow.AddHours(1);
+            await db.SaveChangesAsync(); await tx.CommitAsync();
+            return Results.Ok(new { token });
+        }).AddEndpointFilter<ValidationFilter>().RequireRateLimiting("login");
 
         app.MapPost("/api/v1/public/access/tickets", async (PublicAccessToken request, TicketsDbContext db) =>
         {

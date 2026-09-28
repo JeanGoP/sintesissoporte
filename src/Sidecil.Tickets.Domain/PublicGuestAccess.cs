@@ -7,4 +7,8 @@ public sealed class PublicGuestAccess
     public string Email { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; set; }
+    public string? VerificationHash { get; set; }
+    public DateTime? VerificationExpiresAt { get; set; }
+    public int VerificationAttempts { get; set; }
+    public DateTime? VerifiedAt { get; set; }
 }

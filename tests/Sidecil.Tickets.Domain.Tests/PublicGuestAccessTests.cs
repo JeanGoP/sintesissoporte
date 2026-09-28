@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -28,14 +29,26 @@ public sealed partial class PortalOidcTests
             var other=new Ticket {Subject="Problema ajeno",GuestName="Otro",GuestEmail=otherEmail,OrganizationId=TicketsDbContext.GuestOrganizationId,TeamId=team,DueAt=DateTime.UtcNow.AddHours(24)};
             db.Tickets.AddRange(first,other); await db.SaveChangesAsync(); firstId=first.Id;otherId=other.Id;
         }
-        string AccessToken(string body) => body.Split("#access=")[1].Split((char)10)[0].Trim();
         async Task<string> Start() {
+            using (var prior=app.Services.CreateScope()) {
+                var previous=prior.ServiceProvider.GetRequiredService<TicketsDbContext>();
+                await previous.PublicGuestAccesses.Where(x=>x.Email==email).ExecuteUpdateAsync(x=>x.SetProperty(s=>s.CreatedAt,DateTime.UtcNow.AddMinutes(-2)));
+            }
             var response=await client.PostAsJsonAsync("/api/v1/public/access/start",new{name="Cliente",email});
             Assert.Equal(HttpStatusCode.Accepted,response.StatusCode);
+            using var issued=JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var id=issued.RootElement.GetProperty("id").GetGuid();
             using var scope=app.Services.CreateScope();
             var db=scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
             var mail=await db.OutboundEmails.Where(x=>x.Recipient==email&&x.Kind=="PublicAccess").OrderByDescending(x=>x.CreatedAt).FirstAsync();
-            return AccessToken(mail.Body);
+            var code=Regex.Match(mail.Body,@"Tu código es: (\d{8})").Groups[1].Value;
+            Assert.Equal(8,code.Length);
+            var wrongCode=(code[0]=='0'?'1':'0')+code[1..];
+            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync("/api/v1/public/access/verify",new{id,code=wrongCode})).StatusCode);
+            var verify=await client.PostAsJsonAsync("/api/v1/public/access/verify",new{id,code});
+            verify.EnsureSuccessStatusCode();
+            using var verified=JsonDocument.Parse(await verify.Content.ReadAsStringAsync());
+            return verified.RootElement.GetProperty("token").GetString()!;
         }
         MultipartFormDataContent Form(string token,string ticketId,string subject="") {
             var form=new MultipartFormDataContent();
