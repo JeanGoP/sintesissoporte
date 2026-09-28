@@ -56,6 +56,7 @@ public sealed partial class PortalOidcTests
             form.Add(new StringContent(subject),"subject");form.Add(new StringContent("Nueva evidencia del problema"),"body");
             form.Add(new StringContent("General"),"category");form.Add(new StringContent("d1000000-0000-0000-0000-000000000001"),"moduleId");
             form.Add(new StringContent("Empresa de prueba"),"companyName");
+            form.Add(new StringContent("High"),"priority");
             form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("Detalle adicional")),"files","detalle.txt");
             return form;
         }
@@ -82,6 +83,7 @@ public sealed partial class PortalOidcTests
             using(var scope=app.Services.CreateScope()) {
                 var db=scope.ServiceProvider.GetRequiredService<TicketsDbContext>();
                 Assert.Equal(2,await db.Tickets.CountAsync(x=>x.GuestEmail==email));
+                Assert.Equal(TicketPriority.High,(await db.Tickets.Where(x=>x.GuestEmail==email).OrderByDescending(x=>x.Id).FirstAsync()).Priority);
                 Assert.Equal(0,await db.GuestSubmissions.CountAsync(x=>x.Email==email));
             }
         } finally {

@@ -129,6 +129,10 @@ public static class PublicGuestAccessEndpoints
                 var category = form["category"].ToString();
                 var moduleId = Guid.TryParse(form["moduleId"], out var parsed) ? parsed : (Guid?)null;
                 var company = form["companyName"].ToString().Trim();
+                var priority = TicketPriority.Normal;
+                var priorityText = form["priority"].ToString();
+                if (!string.IsNullOrEmpty(priorityText) && (!Enum.TryParse<TicketPriority>(priorityText, out priority) || !Enum.IsDefined(priority)))
+                    return Bad("Selecciona una prioridad válida.");
                 if (subject.Length is < 5 or > 180 || await SupportCatalog.Resolve(db, moduleId, category) is null || !SupportCatalog.ValidCompany(company))
                     return Bad("Completa empresa, categoría, módulo y asunto.");
                 var team = await db.Teams.OrderBy(x => x.Name).FirstOrDefaultAsync(http.RequestAborted);
@@ -137,7 +141,7 @@ public static class PublicGuestAccessEndpoints
                 ticket = new Ticket { Subject = subject, Category = category, ModuleId = moduleId, CompanyName = company,
                     RequesterId = requester?.Id, GuestName = requester is null ? session.Name : null, GuestEmail = requester is null ? session.Email : null,
                     OrganizationId = requester?.OrganizationId ?? TicketsDbContext.GuestOrganizationId, TeamId = team.Id,
-                    Priority = TicketPriority.Normal, DueAt = DateTime.UtcNow.AddHours(Ticket.TargetHours(TicketPriority.Normal)) };
+                    Priority = priority, DueAt = DateTime.UtcNow.AddHours(Ticket.TargetHours(priority)) };
                 db.Tickets.Add(ticket);
             }
             var isNew = ticket.Id == 0;

@@ -12,7 +12,7 @@ import {
   ArrowLeft,
   RefreshCw,
 } from "lucide-react";
-import { api, date, statuses, type Status } from "./api";
+import { api, date, priorities, statuses, type Priority, type Status } from "./api";
 import { ErrorBox, Loading } from "./shared";
 
 export function GuestPage({ confirm = false }: { confirm?: boolean }) {
@@ -23,6 +23,7 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
     [category, setCategory] = useState("General"),
     [moduleId, setModuleId] = useState(""),
     [companyName, setCompanyName] = useState(""),
+    [priority, setPriority] = useState<Priority>("Normal"),
     [organizationId, setOrganizationId] = useState(""),
     [files, setFiles] = useState<File[]>([]),
     [accessToken, setAccessToken] = useState(() => new URLSearchParams(location.hash.slice(1)).get("access") || ""),
@@ -93,6 +94,7 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
         form.set("category", category);
         form.set("moduleId", moduleId);
         form.set("companyName", companyName);
+        form.set("priority", priority);
         files.forEach((file) => form.append("files", file, file.name));
         const result = await api<{number: string; existing: boolean}>("/public/access/send", {
           method: "POST", body: form,
@@ -178,8 +180,9 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
               </>
             ) : (
               <>
-                <Alert severity="info">{choice === "new" ? "Nueva solicitud" : "Agregar información a " + access.data.tickets.find(t => t.id === choice)?.number}</Alert>
+                <Alert severity="info">{choice === "new" ? "Estás creando un ticket nuevo. Completa sus datos para enviarlo." : "Estás respondiendo al ticket " + access.data.tickets.find(t => t.id === choice)?.number + ". Para un problema diferente, crea un ticket nuevo."}</Alert>
                 {choice === "new" && <>
+                <h2>Datos del ticket nuevo</h2>
                 <TextField
                   label="Asunto"
                   required
@@ -201,6 +204,10 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                     setOrganizationId(v.organizationId || "");
                   }}
                 />
+                <TextField select required label="Prioridad" value={priority} disabled={busy}
+                  onChange={(e) => setPriority(e.target.value as Priority)}>
+                  {Object.entries(priorities).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+                </TextField>
                 </>}
                 <TextField
                   required
@@ -291,6 +298,9 @@ export function GuestPage({ confirm = false }: { confirm?: boolean }) {
                   endIcon={<Send size={16} />}
                 >
                   {busy ? "Enviando…" : choice === "new" ? "Crear ticket" : "Enviar al ticket"}
+                </Button>
+                <Button type="button" disabled={busy} onClick={() => { setChoice(""); setError(undefined); }}>
+                  {choice === "new" ? "Volver a mis tickets pendientes" : "Elegir otro ticket o crear uno nuevo"}
                 </Button>
               </>
             )}
