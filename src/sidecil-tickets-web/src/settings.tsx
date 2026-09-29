@@ -2,6 +2,7 @@ import { UserRoleEditor } from "./user-role";
 import { AgentLifecycleActions } from "./agent-lifecycle";
 import { CatalogAdmin, UserScopeEditor } from "./catalog-admin";
 import { ExternalConnections } from "./external-login";
+import { NotificationSettings } from "./notifications";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -353,6 +354,7 @@ export function AccountPage({ user }: { user: User }) {
         </div>
       </div>
       <ExternalConnections hasPassword={user.hasPassword !== false} />
+      {user.role !== "Requester" && <NotificationSettings user={user} />}
       <section className="account-card">
         <h2>Seguridad de acceso</h2>
         <p>{user.email}</p>

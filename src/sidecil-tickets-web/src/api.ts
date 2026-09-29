@@ -1,6 +1,7 @@
 import { backendUrl } from "./backend";
 export type User = {
   hasPassword?: boolean;
+  notificationSound?: NotificationSound;
   id: string;
   displayName: string;
   email: string;
@@ -9,6 +10,7 @@ export type User = {
   organizationId: string;
   teamId: string | null;
 };
+export type NotificationSound = "Off" | "Chime" | "Bell" | "Soft";
 export type Status =
   | "New"
   | "InProgress"

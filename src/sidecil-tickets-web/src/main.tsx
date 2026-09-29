@@ -45,6 +45,7 @@ import { ExternalLoginButtons } from "./external-login";
 import { GuestPage, MailSettings } from "./mail";
 import { ChatWidget } from "./chat";
 import { ChatSettings } from "./chat-settings";
+import { AgentNotifications } from "./notifications";
 import { MessageCircle } from "lucide-react";
 const theme = createTheme({
   palette: {
@@ -385,6 +386,7 @@ function Shell({ user }: { user: User }) {
         </footer>
       </div>
       <CreateDialog open={create} onClose={() => setCreate(false)} />
+      {staff && <AgentNotifications user={user} />}
     </div>
   );
 }

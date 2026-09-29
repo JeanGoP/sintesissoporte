@@ -12,6 +12,7 @@ public sealed class ApplicationUser : IdentityUser
     public string Role { get; set; } = "Requester";
     public Guid OrganizationId { get; set; }
     public Guid? TeamId { get; set; }
+    public string NotificationSound { get; set; } = "Off";
 }
 
 public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options) : IdentityDbContext<ApplicationUser>(options)
@@ -187,6 +188,7 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
         model.Entity<ApplicationUser>(e => {
             e.Property(x => x.DisplayName).HasMaxLength(120);
             e.Property(x => x.Role).HasMaxLength(20);
+            e.Property(x => x.NotificationSound).HasMaxLength(20).HasDefaultValue("Off");
             e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<Team>().WithMany().HasForeignKey(x => x.TeamId).OnDelete(DeleteBehavior.Restrict);
         });
