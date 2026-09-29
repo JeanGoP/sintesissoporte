@@ -19,7 +19,7 @@ export async function playNotificationSound(sound: NotificationSound) {
     await context.resume();
     const notes = sound === "Bell" ? [659, 880, 659] : sound === "Soft" ? [440, 554] : [523, 659, 784];
     const gain = context.createGain();
-    gain.gain.value = sound === "Soft" ? 0.045 : 0.075;
+    gain.gain.value = sound === "Soft" ? 0.09 : 0.16;
     gain.connect(context.destination);
     const now = context.currentTime;
     notes.forEach((frequency, index) => {
