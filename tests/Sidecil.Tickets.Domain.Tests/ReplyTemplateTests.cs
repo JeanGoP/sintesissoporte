@@ -13,7 +13,7 @@ namespace Sidecil.Tickets.Domain.Tests;
 public sealed partial class PortalOidcTests
 {
     [Fact]
-    public async Task OnlyAdminManagesTemplatesAndAgentsSeeOnlyEnabledOnes()
+    public async Task AdminAndAgentManageTemplatesButRequesterCannot()
     {
         using var factory = new PortalOidcFactory();
         HttpClient Client() => factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
@@ -22,6 +22,7 @@ public sealed partial class PortalOidcTests
         using var requester = Client();
         var title = "Plantilla prueba " + Guid.NewGuid();
         Guid templateId = Guid.Empty;
+        Guid agentTemplateId = Guid.Empty;
         try
         {
             using (var scope = factory.Services.CreateScope())
@@ -43,8 +44,9 @@ public sealed partial class PortalOidcTests
                 await Login(requester, "Requester");
             }
             var payload = new { title, body = "Hola {nombre}, revisamos el ticket {numero}.", enabled = true };
-            Assert.Equal(HttpStatusCode.Forbidden, (await agent.PostAsJsonAsync("/api/v1/admin/reply-templates", payload)).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, (await requester.GetAsync("/api/v1/reply-templates")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await requester.GetAsync("/api/v1/admin/reply-templates")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await requester.PostAsJsonAsync("/api/v1/admin/reply-templates", payload)).StatusCode);
             Assert.Contains((await agent.GetFromJsonAsync<JsonElement>("/api/v1/reply-templates")).EnumerateArray(),
                 x => x.GetProperty("title").GetString() == "Solicitar más información");
             var created = await admin.PostAsJsonAsync("/api/v1/admin/reply-templates", payload);
@@ -53,14 +55,22 @@ public sealed partial class PortalOidcTests
             Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsJsonAsync("/api/v1/admin/reply-templates", payload)).StatusCode);
             Assert.Contains((await agent.GetFromJsonAsync<JsonElement>("/api/v1/reply-templates")).EnumerateArray(),
                 x => x.GetProperty("id").GetGuid() == templateId);
-            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/v1/admin/reply-templates/" + templateId,
+            Assert.Equal(HttpStatusCode.NoContent, (await agent.PutAsJsonAsync("/api/v1/admin/reply-templates/" + templateId,
                 new { title, body = "Respuesta mejorada para {asunto}.", enabled = false })).StatusCode);
             Assert.DoesNotContain((await agent.GetFromJsonAsync<JsonElement>("/api/v1/reply-templates")).EnumerateArray(),
                 x => x.GetProperty("id").GetGuid() == templateId);
             Assert.Contains((await admin.GetFromJsonAsync<JsonElement>("/api/v1/admin/reply-templates")).EnumerateArray(),
                 x => x.GetProperty("id").GetGuid() == templateId && !x.GetProperty("enabled").GetBoolean());
-            Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/v1/admin/reply-templates/" + templateId)).StatusCode);
+            Assert.Contains((await agent.GetFromJsonAsync<JsonElement>("/api/v1/admin/reply-templates")).EnumerateArray(),
+                x => x.GetProperty("id").GetGuid() == templateId);
+            Assert.Equal(HttpStatusCode.NoContent, (await agent.DeleteAsync("/api/v1/admin/reply-templates/" + templateId)).StatusCode);
             templateId = Guid.Empty;
+            var agentPayload = new { title = title + " agente", body = "Respuesta creada por agente.", enabled = true };
+            var agentCreated = await agent.PostAsJsonAsync("/api/v1/admin/reply-templates", agentPayload);
+            Assert.Equal(HttpStatusCode.Created, agentCreated.StatusCode);
+            agentTemplateId = (await agentCreated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync("/api/v1/admin/reply-templates/" + agentTemplateId)).StatusCode);
+            agentTemplateId = Guid.Empty;
         }
         finally
         {
@@ -69,6 +79,12 @@ public sealed partial class PortalOidcTests
                 using var scope = factory.Services.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<TicketsDbContext>().ReplyTemplates
                     .Where(t => t.Id == templateId).ExecuteDeleteAsync();
+            }
+            if (agentTemplateId != Guid.Empty)
+            {
+                using var scope = factory.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<TicketsDbContext>().ReplyTemplates
+                    .Where(t => t.Id == agentTemplateId).ExecuteDeleteAsync();
             }
         }
     }

@@ -23,7 +23,7 @@ public static class ReplyTemplateEndpoints
         admin.AddEndpointFilter(async (context, next) =>
         {
             var users = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
-            return (await users.GetUserAsync(context.HttpContext.User))?.Role == "Admin"
+            return (await users.GetUserAsync(context.HttpContext.User))?.Role is "Admin" or "Agent"
                 ? await next(context) : Results.Forbid();
         });
         admin.MapGet("", async (TicketsDbContext db) => Results.Ok(await db.ReplyTemplates.AsNoTracking()

@@ -272,7 +272,7 @@ function Shell({ user }: { user: User }) {
               Chat en tus sistemas
             </NavLink>
           )}
-          {user.role === "Admin" && (
+          {(user.role === "Admin" || user.role === "Agent") && (
             <NavLink to="/admin/reply-templates">
               <MessageSquareText size={19} />
               Respuestas rápidas
@@ -384,7 +384,7 @@ function Shell({ user }: { user: User }) {
                 )
               }
             />
-            <Route path="/admin/reply-templates" element={user.role === "Admin" ? <ReplyTemplatesAdmin /> : <Navigate to="/" replace />} />
+            <Route path="/admin/reply-templates" element={user.role === "Admin" || user.role === "Agent" ? <ReplyTemplatesAdmin /> : <Navigate to="/" replace />} />
             <Route path="/account" element={<AccountPage user={user} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
