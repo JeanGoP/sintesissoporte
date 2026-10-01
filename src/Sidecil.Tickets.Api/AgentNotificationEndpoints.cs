@@ -42,6 +42,7 @@ public static class AgentNotificationEndpoints
             if (newest <= after.Value) return Results.Ok(new { cursor = after.Value, items = Array.Empty<object>() });
 
             var visible = user.Role == "Admin" ? db.Tickets : db.Tickets.Where(t => t.ModuleId != null &&
+                (t.AssigneeId == null || t.AssigneeId == user.Id) &&
                 db.AgentModules.Any(m => m.UserId == user.Id && m.ModuleId == t.ModuleId));
             var entries = await (from e in db.Events.AsNoTracking()
                 join t in visible on e.TicketId equals t.Id

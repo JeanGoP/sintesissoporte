@@ -84,6 +84,13 @@ public sealed class TicketEvent
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public sealed class TicketRead
+{
+    public long TicketId { get; set; }
+    public string UserId { get; set; } = "";
+    public long LastEventId { get; set; }
+}
+
 public sealed class Organization
 {
     public Guid Id { get; set; } = Guid.NewGuid();

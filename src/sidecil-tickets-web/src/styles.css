@@ -469,6 +469,28 @@ main {
   gap: 10px;
   padding: 18px 24px;
   border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.date-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #52657e;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.date-filter-title {
+  color: #52657e;
+  font-size: 11px;
+  font-weight: 650;
+}
+.date-filter input {
+  min-height: 37px;
+  border: 1px solid #e0e3e9;
+  border-radius: 7px;
+  padding: 7px;
+  color: #52657e;
+  background: #fff;
 }
 .search-field {
   display: flex;
@@ -543,6 +565,40 @@ main {
 }
 .tickets-table tbody tr:hover {
   background: #f9fbfd;
+}
+.tickets-table tbody tr.ticket-unread {
+  background: #f2f9ff;
+  box-shadow: inset 3px 0 #28a5ec;
+}
+.tickets-table tbody tr.ticket-unread:hover {
+  background: #eaf5ff;
+}
+.ticket-unread .ticket-link strong {
+  color: #172b4b;
+  font-weight: 750;
+}
+.ticket-unread-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  color: #075b91;
+  font-size: 10px;
+  font-weight: 750;
+}
+.ticket-unread-label i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #12a8f4;
+  box-shadow: 0 0 0 3px #d5f1ff, 0 0 10px #16baff;
+  animation: ticket-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ticket-pulse {
+  50% { opacity: .35; box-shadow: 0 0 0 6px #d5f1ff, 0 0 16px #16baff; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticket-unread-label i { animation: none; }
 }
 .ticket-link {
   border: 0;

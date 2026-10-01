@@ -30,6 +30,7 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketMessage> Messages => Set<TicketMessage>();
     public DbSet<TicketEvent> Events => Set<TicketEvent>();
+    public DbSet<TicketRead> TicketReads => Set<TicketRead>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
@@ -225,6 +226,12 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
             e.Property(x => x.Kind).HasMaxLength(40);
             e.Property(x => x.Detail).HasMaxLength(2200);
             e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.ActorId).OnDelete(DeleteBehavior.Restrict);
+        });
+        model.Entity<TicketRead>(e => {
+            e.ToTable("TicketReads", "tickets");
+            e.HasKey(x => new { x.TicketId, x.UserId });
+            e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -37,6 +37,7 @@ export type Ticket = {
   organization: string;
   assignee: string | null;
   hasCustomerReply: boolean;
+  hasUnread?: boolean;
 };
 export type TicketDetail = Omit<Ticket, "requester"> & {
   version?: string;

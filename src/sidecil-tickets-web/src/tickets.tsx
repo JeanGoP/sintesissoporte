@@ -51,6 +51,10 @@ type TicketList = {
   pageSize: number;
   summary: Summary;
 };
+function dateBoundary(value: string, nextDay = false) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day + (nextDay ? 1 : 0)).toISOString();
+}
 function useTickets(search = "") {
   return useQuery({
     queryKey: ["tickets", search],
@@ -122,6 +126,8 @@ export function InboxPage({
     [term, setTerm] = useState(""),
     [status, setStatus] = useState(""),
     [priority, setPriority] = useState(""),
+    [dateStart, setDateStart] = useState(""),
+    [dateEnd, setDateEnd] = useState(""),
     [view, setView] = useState(""),
     [page, setPage] = useState(1),
     staff = user.role !== "Requester";
@@ -138,6 +144,8 @@ export function InboxPage({
         search: term,
         status,
         priority,
+        ...(dateStart ? { from: dateBoundary(dateStart) } : {}),
+        ...(dateEnd ? { to: dateBoundary(dateEnd, true) } : {}),
         view,
         page: String(page),
       }),
@@ -208,6 +216,14 @@ export function InboxPage({
           </button>
           {staff && (
             <>
+              {user.role === "Admin" && (
+                <button
+                  className={view === "assigned" ? "active" : ""}
+                  onClick={() => filter(setView, "assigned")}
+                >
+                  Tickets asignados
+                </button>
+              )}
               <button
                 className={view === "mine" ? "active" : ""}
                 onClick={() => filter(setView, "mine")}
@@ -271,6 +287,18 @@ export function InboxPage({
               </option>
             ))}
           </select>
+          <span className="date-filter-title">Fecha de creación</span>
+          <label className="date-filter">
+            Desde
+            <input type="date" aria-label="Fecha inicial" value={dateStart}
+              max={dateEnd || undefined} onChange={(e) => filter(setDateStart, e.target.value)} />
+          </label>
+          <label className="date-filter">
+            Hasta
+            <input type="date" aria-label="Fecha final" value={dateEnd}
+              min={dateStart || undefined} onChange={(e) => filter(setDateEnd, e.target.value)} />
+          </label>
+          {(dateStart || dateEnd) && <button className="text-button" onClick={() => { setDateStart(""); setDateEnd(""); setPage(1); }}>Limpiar fechas</button>}
         </div>
         <ErrorBox error={query.error} />
         {query.isPending ? (
@@ -292,15 +320,16 @@ export function InboxPage({
               </thead>
               <tbody>
                 {query.data.items.map((t) => (
-                  <tr key={t.id}>
+                  <tr key={t.id} className={staff && t.hasUnread ? "ticket-unread" : ""}>
                     <td>
                       <button
                         className="ticket-link"
                         onClick={() => navigate("/tickets/" + t.id)}
                       >
-                        {staff && t.hasCustomerReply && (
-                          <span className="customer-reply">
-                            Respuesta del cliente
+                        {staff && t.hasUnread && (
+                          <span className="ticket-unread-label" aria-label="Novedad sin leer">
+                            <i aria-hidden="true" />
+                            {t.hasCustomerReply ? "Nueva respuesta" : "Nuevo ticket"}
                           </span>
                         )}
                         <span className="ticket-meta">

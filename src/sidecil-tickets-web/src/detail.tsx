@@ -1,6 +1,6 @@
 import { ClassifyTicket } from "./classify-ticket";
 import { TicketAttachments } from "./attachment-preview";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  ApiError,
   date,
   initials,
   statuses,
@@ -46,6 +47,7 @@ export function DetailPage({ user }: { user: User }) {
     [next, setNext] = useState<Status | "">(""),
     [reason, setReason] = useState(""),
     [notice, setNotice] = useState("");
+  const seenEvent = useRef("");
   const detail = useQuery({
     queryKey: ["ticket", id],
     queryFn: () => api<TicketDetail>("/tickets/" + id, { cache: "no-store" }),
@@ -63,6 +65,16 @@ export function DetailPage({ user }: { user: User }) {
     setError(undefined);
     setVisibility("Public");
   }, [id]);
+  useEffect(() => {
+    if (!staff || !id || !detail.data?.data) return;
+    const latest = detail.data.data.events?.[0]?.id ?? 0;
+    const key = id + ":" + latest;
+    if (seenEvent.current === key) return;
+    seenEvent.current = key;
+    void api("/tickets/" + id + "/seen", { method: "POST" })
+      .then(() => client.invalidateQueries({ queryKey: ["tickets"] }))
+      .catch(() => { seenEvent.current = ""; });
+  }, [staff, id, detail.data, client]);
   async function mutate(path: string, body: unknown, method = "POST") {
     setBusy(true);
     setError(undefined);
@@ -89,6 +101,13 @@ export function DetailPage({ user }: { user: User }) {
   }
   const t = detail.data?.data;
   if (detail.isPending) return <Loading />;
+  if (detail.error instanceof ApiError && detail.error.status === 404)
+    return (
+      <>
+        <Button startIcon={<ArrowLeft size={16} />} onClick={() => navigate("/")}>Volver a la bandeja</Button>
+        <p>Este ticket ya no está disponible para tu cuenta.</p>
+      </>
+    );
   if (!t)
     return (
       <>

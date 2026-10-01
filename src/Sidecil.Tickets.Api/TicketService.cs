@@ -15,7 +15,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
     private IQueryable<Ticket> Visible(ApplicationUser u) => u.Role switch
     {
         "Admin" => db.Tickets,
-        "Agent" => db.Tickets.Where(t => t.ModuleId != null && db.AgentModules.Any(m => m.UserId == u.Id && m.ModuleId == t.ModuleId)),
+        "Agent" => db.Tickets.Where(t => t.ModuleId != null && (t.AssigneeId == null || t.AssigneeId == u.Id) && db.AgentModules.Any(m => m.UserId == u.Id && m.ModuleId == t.ModuleId)),
         _ => db.Tickets.Where(t => t.RequesterId == u.Id)
     };
     private static bool Staff(ApplicationUser u) => AccessRules.IsStaff(u.Role);
@@ -27,7 +27,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
 
     private static string Number(long id) => $"SC-{id:00000}";
 
-    public async Task<IResult> ListAsync(HttpContext c, string? search, string? status, string? priority, string? view, int page)
+    public async Task<IResult> ListAsync(HttpContext c, string? search, string? status, string? priority, string? view, DateTimeOffset? from, DateTimeOffset? to, int page)
     {
         var actor = await Actor(c);
         var visible = Visible(actor);
@@ -41,6 +41,9 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
             resolved = await visible.CountAsync(t => t.Status == TicketStatus.Resolved || t.Status == TicketStatus.Closed || t.Status == TicketStatus.Cancelled)
         };
         var query = visible;
+        if (from >= to) return Bad("La fecha inicial debe ser anterior a la fecha final.");
+        if (from is { } start) query = query.Where(t => t.CreatedAt >= start.UtcDateTime);
+        if (to is { } end) query = query.Where(t => t.CreatedAt < end.UtcDateTime);
         if (!string.IsNullOrWhiteSpace(search))
         {
             search = search.Trim();
@@ -64,6 +67,7 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
             "needs-routing" when actor.Role == "Admin" => query.Where(t => t.ModuleId == null || !db.AgentModules.Any(m => m.ModuleId == t.ModuleId && db.Users.Any(u => u.Id == m.UserId && u.Role == "Agent" && u.LockoutEnd != AdministrationLifecycle.DisabledUntil))),
             "replies" => query.Where(t => t.HasCustomerReply),
             "mine" => query.Where(t => t.AssigneeId == actor.Id),
+            "assigned" => query.Where(t => t.AssigneeId != null),
             "unassigned" => query.Where(t => t.AssigneeId == null && t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed && t.Status != TicketStatus.Cancelled),
             "overdue" => query.Where(t => t.DueAt < now && t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed && t.Status != TicketStatus.Cancelled),
             _ => query
@@ -85,11 +89,15 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
                 t.UpdatedAt,
                 t.DueAt,
                 t.HasCustomerReply,
+                hasUnread = actor.Role != "Requester" && db.Events.Any(e => e.TicketId == t.Id && e.ActorId != actor.Id &&
+                    (e.Kind == "Created" || e.Kind == "CustomerReply" || e.Kind == "EmailReply" ||
+                     e.Kind == "Reply" && e.ActorId != null && e.ActorId == t.RequesterId) &&
+                    !db.TicketReads.Any(r => r.TicketId == t.Id && r.UserId == actor.Id && r.LastEventId >= e.Id)),
                 requester = db.Users.Where(u => u.Id == t.RequesterId).Select(u => u.DisplayName).FirstOrDefault() ?? t.GuestName!,
                 organization = t.CompanyName ?? db.Organizations.Where(o => o.Id == t.OrganizationId).Select(o => o.Name).First(),
                 assignee = db.Users.Where(u => u.Id == t.AssigneeId).Select(u => u.DisplayName).FirstOrDefault()
             }).ToListAsync();
-        return Results.Ok(new { items = rows.Select(t => new { number = Number(t.Id), id = t.PublicId, t.Subject, t.Category, t.ModuleId, t.module, t.Status, t.Priority, t.CreatedAt, t.UpdatedAt, t.DueAt, t.HasCustomerReply, t.requester, t.organization, t.assignee }), total, page, pageSize = 25, summary });
+        return Results.Ok(new { items = rows.Select(t => new { number = Number(t.Id), id = t.PublicId, t.Subject, t.Category, t.ModuleId, t.module, t.Status, t.Priority, t.CreatedAt, t.UpdatedAt, t.DueAt, t.HasCustomerReply, t.hasUnread, t.requester, t.organization, t.assignee }), total, page, pageSize = 25, summary });
     }
 
     public async Task<IResult> DetailAsync(HttpContext c, Guid id)
@@ -147,6 +155,20 @@ public sealed class TicketService(TicketsDbContext db, UserManager<ApplicationUs
             events,
             nextStatuses = staff ? Ticket.NextStatuses(ticket.Status) : []
         });
+    }
+
+    public async Task<IResult> SeenAsync(HttpContext c, Guid id)
+    {
+        var actor = await Actor(c);
+        if (!Staff(actor)) return Results.Forbid();
+        var ticket = await Visible(actor).Where(t => t.PublicId == id).Select(t => new { t.Id }).FirstOrDefaultAsync();
+        if (ticket is null) return Results.NotFound();
+        var latest = await db.Events.Where(e => e.TicketId == ticket.Id).MaxAsync(e => (long?)e.Id) ?? 0;
+        var read = await db.TicketReads.FindAsync(ticket.Id, actor.Id);
+        if (read is null) db.TicketReads.Add(new TicketRead { TicketId = ticket.Id, UserId = actor.Id, LastEventId = latest });
+        else if (read.LastEventId < latest) read.LastEventId = latest;
+        await db.SaveChangesAsync();
+        return Results.NoContent();
     }
 
     public async Task<IResult> AttachmentAsync(HttpContext c, Guid id, Guid fileId)
