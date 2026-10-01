@@ -1,5 +1,6 @@
 import { ClassifyTicket } from "./classify-ticket";
 import { TicketAttachments } from "./attachment-preview";
+import { ReplyTemplatePicker } from "./reply-templates";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -236,6 +237,15 @@ export function DetailPage({ user }: { user: User }) {
                   </button>
                 )}
               </div>
+              {staff && visibility === "Public" && (
+                <ReplyTemplatePicker name={t.requester.displayName} number={t.number} subject={t.subject}
+                  insert={(body) => {
+                    const next = [draft.trimEnd(), body].filter(Boolean).join("\n\n");
+                    if (next.length > 12000) { setError(new Error("La respuesta supera los 12.000 caracteres.")); return; }
+                    setDraft(next);
+                    document.getElementById("reply")?.focus();
+                  }} />
+              )}
               <label className="sr-only" htmlFor="reply">
                 Mensaje
               </label>

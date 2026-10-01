@@ -153,6 +153,7 @@ api.MapGet("/auth/me", async (HttpContext c, UserManager<ApplicationUser> users,
 });
 api.MapPost("/auth/logout", async (SignInManager<ApplicationUser> signIn) => { await signIn.SignOutAsync(); return Results.NoContent(); });
 AgentNotificationEndpoints.Map(api);
+ReplyTemplateEndpoints.Map(api);
 api.MapPost("/auth/password", async (ChangePasswordRequest request, HttpContext c, UserManager<ApplicationUser> users, SignInManager<ApplicationUser> signIn) => {
     var user = (await users.GetUserAsync(c.User))!;
     var result = await users.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);

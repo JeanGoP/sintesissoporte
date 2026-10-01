@@ -31,6 +31,7 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
     public DbSet<TicketMessage> Messages => Set<TicketMessage>();
     public DbSet<TicketEvent> Events => Set<TicketEvent>();
     public DbSet<TicketRead> TicketReads => Set<TicketRead>();
+    public DbSet<ReplyTemplate> ReplyTemplates => Set<ReplyTemplate>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
@@ -232,6 +233,12 @@ public sealed class TicketsDbContext(DbContextOptions<TicketsDbContext> options)
             e.HasKey(x => new { x.TicketId, x.UserId });
             e.HasOne<Ticket>().WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        model.Entity<ReplyTemplate>(e => {
+            e.ToTable("ReplyTemplates", "tickets");
+            e.Property(x => x.Title).HasMaxLength(80);
+            e.Property(x => x.Body).HasMaxLength(4000);
+            e.HasIndex(x => x.Title).IsUnique();
         });
     }
 }

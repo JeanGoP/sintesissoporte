@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Users,
   CheckCircle2,
+  MessageSquareText,
 } from "lucide-react";
 import { api, ApiError, refreshCsrf, initials, type User } from "./api";
 import { InboxPage, CreateDialog, ReportsPage } from "./tickets";
@@ -46,6 +47,7 @@ import { GuestPage, MailSettings } from "./mail";
 import { ChatWidget } from "./chat";
 import { ChatSettings } from "./chat-settings";
 import { AgentNotifications } from "./notifications";
+import { ReplyTemplatesAdmin } from "./reply-templates";
 import { MessageCircle } from "lucide-react";
 const theme = createTheme({
   palette: {
@@ -270,6 +272,12 @@ function Shell({ user }: { user: User }) {
               Chat en tus sistemas
             </NavLink>
           )}
+          {user.role === "Admin" && (
+            <NavLink to="/admin/reply-templates">
+              <MessageSquareText size={19} />
+              Respuestas rápidas
+            </NavLink>
+          )}
           <NavLink to="/account">
             <Settings2 size={19} />
             Mi cuenta
@@ -376,6 +384,7 @@ function Shell({ user }: { user: User }) {
                 )
               }
             />
+            <Route path="/admin/reply-templates" element={user.role === "Admin" ? <ReplyTemplatesAdmin /> : <Navigate to="/" replace />} />
             <Route path="/account" element={<AccountPage user={user} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
